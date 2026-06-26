@@ -9,10 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PartnersIndexRouteImport } from './routes/partners.index'
 import { Route as PartnersIdRouteImport } from './routes/partners.$id'
 
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -31,36 +37,47 @@ const PartnersIdRoute = PartnersIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/partners/$id': typeof PartnersIdRoute
   '/partners/': typeof PartnersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/partners/$id': typeof PartnersIdRoute
   '/partners': typeof PartnersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/partners/$id': typeof PartnersIdRoute
   '/partners/': typeof PartnersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/partners/$id' | '/partners/'
+  fullPaths: '/' | '/admin' | '/partners/$id' | '/partners/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/partners/$id' | '/partners'
-  id: '__root__' | '/' | '/partners/$id' | '/partners/'
+  to: '/' | '/admin' | '/partners/$id' | '/partners'
+  id: '__root__' | '/' | '/admin' | '/partners/$id' | '/partners/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   PartnersIdRoute: typeof PartnersIdRoute
   PartnersIndexRoute: typeof PartnersIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   PartnersIdRoute: PartnersIdRoute,
   PartnersIndexRoute: PartnersIndexRoute,
 }
