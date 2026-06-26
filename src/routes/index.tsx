@@ -36,6 +36,7 @@ function SearchPage() {
   const [query, setQuery] = useState("");
   const [city, setCity] = useState<(typeof cities)[number]>("Все города");
   const [priceType, setPriceType] = useState<(typeof priceTypes)[number]>("Любая");
+  const [page, setPage] = useState(1);
 
   const partnerCity = useMemo(
     () => Object.fromEntries(partners.map((p) => [p.id, p.city])) as Record<string, string>,
@@ -51,6 +52,8 @@ function SearchPage() {
       return true;
     });
   }, [query, city, partnerCity]);
+
+  const pageRows = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const processing = priceDocuments.find((d) => d.status === "processing");
   const doneCount = priceDocuments.filter((d) => d.status === "done").length;
