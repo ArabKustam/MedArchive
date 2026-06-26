@@ -41,6 +41,7 @@ app.include_router(documents.router)
 app.include_router(upload.router)
 app.include_router(verification.router)
 app.include_router(stats.router)
+app.include_router(meta.router)
 
 
 @app.get("/health", tags=["meta"])
