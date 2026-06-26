@@ -1,53 +1,85 @@
-// Страница карточки клиники (FSD: pages/partner-detail).
-// Три вкладки: прайс-лист, история цен (SVG-чарт) и список документов клиники.
+// Страница карточки клиники — данные тянутся из backend.
+// Вкладки: прайс-лист (/partners/{id}/prices), документы (/documents?partner_id),
+// история — пока заглушка (backend ещё не отдаёт ряды истории).
 
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { AppLayout } from "@/widgets/app-layout";
 import { StatusPill } from "@/shared/ui/StatusPill";
+import { TableSkeleton, EmptyState, ErrorState } from "@/shared/ui/AsyncState";
+import { Pager } from "@/shared/ui/Pager";
+import { formatBYN } from "@/shared/api/mock-data";
 import {
-  formatBYN,
-  partnerHistory,
-  partnerPriceList,
-  type Partner,
-} from "@/shared/api/mock-data";
-import { useDocuments } from "@/entities/price-document";
+  partnerDocumentsQuery,
+  partnerPricesQuery,
+  partnerQuery,
+} from "@/shared/api/queries";
+import type { PartnerDTO, PriceDocumentDTO, PriceItemDTO } from "@/shared/api/types";
 
 type Tab = "prices" | "history" | "documents";
 
-export function PartnerDetailPage({ partner }: { partner: Partner }) {
+export function PartnerDetailPage({ partnerId }: { partnerId: string }) {
   const [tab, setTab] = useState<Tab>("prices");
+  const [pricePage, setPricePage] = useState(1);
 
-  // Доменные выборки для конкретного партнёра.
-  const prices = partnerPriceList[partner.id] ?? [];
-  const history = partnerHistory[partner.id] ?? [];
-  // Документы берём из реактивного стора — после удаления список схлопывается.
-  const docs = useDocuments().filter((d) => d.partnerId === partner.id);
+  const partner = useQuery(partnerQuery(partnerId));
+  const prices = useQuery(partnerPricesQuery(partnerId, { page: pricePage }));
+  const docs = useQuery(partnerDocumentsQuery(partnerId));
+
+  // ---------- header / loading / error ----------
+  if (partner.isLoading) {
+    return (
+      <AppLayout>
+        <div className="rounded-xl bg-panel p-8 ring-1 ring-border">
+          <TableSkeleton rows={3} cols={4} />
+        </div>
+      </AppLayout>
+    );
+  }
+  if (partner.isError) {
+    return (
+      <AppLayout>
+        <div className="rounded-xl bg-panel ring-1 ring-border">
+          <ErrorState error={partner.error} onRetry={() => partner.refetch()} />
+        </div>
+      </AppLayout>
+    );
+  }
+  const p: PartnerDTO | undefined = partner.data;
+  if (!p) {
+    return (
+      <AppLayout>
+        <EmptyState title="Клиника не найдена" />
+      </AppLayout>
+    );
+  }
+
+  const priceItems: PriceItemDTO[] = prices.data?.items ?? [];
+  const docItems: PriceDocumentDTO[] = docs.data?.items ?? [];
 
   return (
     <AppLayout>
-      {/* Хлебные крошки. */}
       <nav className="mb-4 text-xs text-muted-foreground">
         <Link to="/partners" className="hover:text-foreground">
           Клиники-партнёры
         </Link>
         <span className="mx-1.5 text-zinc-400">/</span>
-        <span className="text-foreground">{partner.name}</span>
+        <span className="text-foreground">{p.name}</span>
       </nav>
 
-      {/* Шапка карточки клиники. */}
       <header className="mb-8 flex flex-wrap items-start justify-between gap-6 rounded-xl bg-panel p-6 ring-1 ring-border">
         <div className="flex gap-5">
           <div className="grid size-14 place-items-center rounded-lg bg-brand/10 text-base font-semibold text-brand ring-1 ring-border">
-            {partner.name.slice(0, 2).toUpperCase()}
+            {p.name.slice(0, 2).toUpperCase()}
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold tracking-tight">{partner.name}</h1>
+              <h1 className="text-xl font-semibold tracking-tight">{p.name}</h1>
               <span
                 className={
                   "inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-semibold uppercase " +
-                  (partner.status === "active"
+                  (p.status === "active"
                     ? "bg-emerald-100 text-emerald-700"
                     : "bg-zinc-200 text-zinc-600")
                 }
@@ -55,108 +87,126 @@ export function PartnerDetailPage({ partner }: { partner: Partner }) {
                 <span
                   className={
                     "size-1.5 rounded-full " +
-                    (partner.status === "active" ? "bg-emerald-500" : "bg-zinc-400")
+                    (p.status === "active" ? "bg-emerald-500" : "bg-zinc-400")
                   }
                 />
-                {partner.status === "active" ? "Активен" : "Пауза"}
-              </span>
-              <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
-                API {partner.apiVersion}
+                {p.status === "active" ? "Активен" : "Пауза"}
               </span>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              {partner.city}, {partner.address}
+              {p.city}, {p.address}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {partner.phone} · {partner.email}
+              {p.phone} · {p.email}
             </p>
           </div>
         </div>
 
-        <dl className="grid grid-cols-3 gap-x-8 gap-y-1 text-right">
-          <Stat label="Услуг" value={partner.servicesCount.toLocaleString("ru-RU")} />
-          <Stat label="Документов" value={partner.docsCount.toString()} />
-          <Stat label="Обновлено" value={partner.lastUpload} />
+        <dl className="grid grid-cols-2 gap-x-8 gap-y-1 text-right">
+          <Stat label="Позиций" value={(prices.data?.total ?? 0).toLocaleString("ru-RU")} />
+          <Stat label="Документов" value={(docs.data?.total ?? 0).toString()} />
         </dl>
       </header>
 
-      {/* Вкладки. */}
       <div className="mb-4 flex gap-1 border-b border-border">
         <TabButton active={tab === "prices"} onClick={() => setTab("prices")}>
-          Прайс-лист ({prices.length})
+          Прайс-лист
         </TabButton>
         <TabButton active={tab === "history"} onClick={() => setTab("history")}>
           История цен
         </TabButton>
         <TabButton active={tab === "documents"} onClick={() => setTab("documents")}>
-          Документы ({docs.length})
+          Документы ({docs.data?.total ?? 0})
         </TabButton>
       </div>
 
       {tab === "prices" && (
         <div className="overflow-hidden rounded-xl bg-panel ring-1 ring-border">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="px-4 py-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Услуга</th>
-                <th className="px-4 py-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Категория</th>
-                <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Резидент</th>
-                <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Не-резидент</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {prices.map((row, idx) => (
-                <tr key={idx} className="hover:bg-muted/30">
-                  <td className="px-4 py-3 text-sm font-medium">{row.service}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{row.category}</td>
-                  <td className="px-4 py-3 text-right text-sm font-medium tabular-nums">
-                    {formatBYN(row.resident)}
-                  </td>
-                  <td className="px-4 py-3 text-right text-sm tabular-nums text-muted-foreground">
-                    {formatBYN(row.nonResident)}
-                  </td>
+          {prices.isLoading ? (
+            <TableSkeleton rows={8} cols={4} />
+          ) : prices.isError ? (
+            <ErrorState error={prices.error} onRetry={() => prices.refetch()} />
+          ) : priceItems.length === 0 ? (
+            <EmptyState title="Прайс-лист пуст" hint="Документы клиники ещё не обработаны." />
+          ) : (
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-4 py-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Услуга</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Резидент</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Не-резидент</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Match</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {priceItems.map((row: PriceItemDTO) => (
+                  <tr key={row.item_id} className="hover:bg-muted/30">
+                    <td className="px-4 py-3 text-sm font-medium">{row.service_name_raw}</td>
+                    <td className="px-4 py-3 text-right text-sm font-medium tabular-nums">
+                      {row.price_resident_kzt != null ? formatBYN(row.price_resident_kzt) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm tabular-nums text-muted-foreground">
+                      {row.price_nonresident_kzt != null ? formatBYN(row.price_nonresident_kzt) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[11px] text-zinc-400">
+                      {(row.match_score * 100).toFixed(0)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <Pager
+            page={pricePage}
+            pageSize={prices.data?.page_size ?? 25}
+            total={prices.data?.total ?? 0}
+            onChange={setPricePage}
+          />
         </div>
       )}
 
-      {tab === "history" && <HistoryChart data={history} />}
+      {tab === "history" && (
+        <div className="rounded-xl bg-panel p-10 text-center text-sm text-muted-foreground ring-1 ring-border">
+          История цен будет доступна после накопления нескольких прайс-листов клиники.
+        </div>
+      )}
 
       {tab === "documents" && (
         <div className="overflow-hidden rounded-xl bg-panel ring-1 ring-border">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="px-4 py-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Файл</th>
-                <th className="px-4 py-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Загружено</th>
-                <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Позиций</th>
-                <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Сопоставлено</th>
-                <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Статус</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {docs.map((d) => (
-                <tr key={d.id} className="hover:bg-muted/30">
-                  <td className="px-4 py-3 font-mono text-sm">{d.filename}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{d.uploadedAt}</td>
-                  <td className="px-4 py-3 text-right text-sm tabular-nums">{d.itemsTotal}</td>
-                  <td className="px-4 py-3 text-right text-sm tabular-nums">{d.itemsMatched}</td>
-                  <td className="px-4 py-3 text-right">
-                    <StatusPill status={d.status} />
-                  </td>
+          {docs.isLoading ? (
+            <TableSkeleton rows={5} cols={5} />
+          ) : docs.isError ? (
+            <ErrorState error={docs.error} onRetry={() => docs.refetch()} />
+          ) : docItems.length === 0 ? (
+            <EmptyState title="Документов нет" />
+          ) : (
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-4 py-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Файл</th>
+                  <th className="px-4 py-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Загружено</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Позиций</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Сопоставлено</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Статус</th>
                 </tr>
-              ))}
-              {docs.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                    Документов нет.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {docItems.map((d: PriceDocumentDTO) => (
+                  <tr key={d.doc_id} className="hover:bg-muted/30">
+                    <td className="px-4 py-3 font-mono text-sm">{d.filename}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {new Date(d.uploaded_at).toLocaleString("ru-RU")}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm tabular-nums">{d.items_total}</td>
+                    <td className="px-4 py-3 text-right text-sm tabular-nums">{d.items_matched}</td>
+                    <td className="px-4 py-3 text-right">
+                      <StatusPill status={d.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
     </AppLayout>
@@ -196,111 +246,5 @@ function TabButton({
     >
       {children}
     </button>
-  );
-}
-
-/**
- * Простой SVG-чарт истории цен. Считает точки по двум сериям (резидент / нерезидент)
- * с нормализацией по min/max и подписями дельты в процентах.
- */
-function HistoryChart({
-  data,
-}: {
-  data: { date: string; resident: number; nonResident: number }[];
-}) {
-  if (data.length === 0) {
-    return (
-      <div className="rounded-xl bg-panel p-10 text-center text-sm text-muted-foreground ring-1 ring-border">
-        Нет данных за период.
-      </div>
-    );
-  }
-
-  // Размеры и отступы внутри SVG viewBox.
-  const W = 720;
-  const H = 220;
-  const PAD = 32;
-  // Расширяем границы для «воздуха» вверху и внизу графика.
-  const maxY = Math.max(...data.map((d) => d.nonResident)) * 1.1;
-  const minY = Math.min(...data.map((d) => d.resident)) * 0.9;
-  // Маппинг индекса/значения в координаты SVG.
-  const sx = (i: number) => PAD + (i * (W - PAD * 2)) / Math.max(data.length - 1, 1);
-  const sy = (v: number) => H - PAD - ((v - minY) / (maxY - minY)) * (H - PAD * 2);
-  // Сборка path "M ... L ..." из ряда точек.
-  const path = (key: "resident" | "nonResident") =>
-    data.map((d, i) => `${i === 0 ? "M" : "L"} ${sx(i)} ${sy(d[key])}`).join(" ");
-
-  const last = data[data.length - 1];
-  const first = data[0];
-  const deltaR = (((last.resident - first.resident) / first.resident) * 100).toFixed(1);
-  const deltaN = (((last.nonResident - first.nonResident) / first.nonResident) * 100).toFixed(1);
-
-  return (
-    <div className="rounded-xl bg-panel p-6 ring-1 ring-border">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="text-sm font-semibold">Динамика цен · 6 мес.</h2>
-          <p className="text-xs text-muted-foreground">
-            Изменение для категорий «Резидент» и «Не-резидент» по эталонной услуге.
-          </p>
-        </div>
-        <div className="flex gap-6 text-right">
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Резидент</div>
-            <div className="text-sm font-semibold tabular-nums">
-              {formatBYN(last.resident)}{" "}
-              <span className={Number(deltaR) >= 0 ? "text-rose-500" : "text-emerald-500"}>
-                {Number(deltaR) >= 0 ? "+" : ""}
-                {deltaR}%
-              </span>
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Не-резидент</div>
-            <div className="text-sm font-semibold tabular-nums">
-              {formatBYN(last.nonResident)}{" "}
-              <span className={Number(deltaN) >= 0 ? "text-rose-500" : "text-emerald-500"}>
-                {Number(deltaN) >= 0 ? "+" : ""}
-                {deltaN}%
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-        {/* Сетка из горизонтальных направляющих. */}
-        {[0.25, 0.5, 0.75].map((p) => (
-          <line
-            key={p}
-            x1={PAD}
-            x2={W - PAD}
-            y1={PAD + p * (H - PAD * 2)}
-            y2={PAD + p * (H - PAD * 2)}
-            stroke="currentColor"
-            className="text-zinc-200"
-            strokeDasharray="2 3"
-          />
-        ))}
-        {/* Линии серий: верхняя — нерезидент, нижняя — резидент. */}
-        <path d={path("nonResident")} fill="none" stroke="oklch(0.69 0.13 178)" strokeWidth={2} />
-        <path d={path("resident")} fill="none" stroke="oklch(0.5 0.085 178)" strokeWidth={2} />
-        {/* Точки + подписи дат. */}
-        {data.map((d, i) => (
-          <g key={i}>
-            <circle cx={sx(i)} cy={sy(d.resident)} r={3} fill="oklch(0.5 0.085 178)" />
-            <circle cx={sx(i)} cy={sy(d.nonResident)} r={3} fill="oklch(0.69 0.13 178)" />
-            <text
-              x={sx(i)}
-              y={H - 8}
-              textAnchor="middle"
-              className="fill-zinc-400 text-[10px]"
-            >
-              {d.date}
-            </text>
-          </g>
-        ))}
-      </svg>
-    </div>
   );
 }
