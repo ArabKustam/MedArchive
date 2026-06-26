@@ -1,6 +1,10 @@
+// Главный лейаут приложения (FSD: widgets/app-layout).
+// Содержит закреплённую боковую панель навигации и контейнер для контента.
+// Бейдж количества несопоставленных позиций берётся из реактивного стора,
+// чтобы автоматически уменьшаться по мере подтверждения позиций оператором.
 import { Link, useRouterState } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { verificationQueue } from "../lib/mock-data";
+import { useVerificationQueue } from "@/entities/verification";
 
 type NavItem = {
   to: string;
@@ -16,10 +20,12 @@ const mainNav: NavItem[] = [
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Активная ссылка: точное совпадение для «/» и префиксное — для остального.
   const isActive = (to: string) =>
     to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(to + "/");
 
   const adminActive = pathname.startsWith("/admin");
+  const queue = useVerificationQueue();
 
   return (
     <div className="min-h-screen bg-surface text-foreground">
@@ -73,7 +79,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               />
               Верификация
               <span className="ml-auto rounded-full bg-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-700">
-                {verificationQueue.length}
+                {queue.length}
               </span>
             </Link>
           </nav>

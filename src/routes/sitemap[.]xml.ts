@@ -1,6 +1,7 @@
+// Серверный роут sitemap.xml. Перечисляет публичные страницы и карточки клиник.
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
-import { partners } from "../lib/mock-data";
+import { partners } from "@/entities/partner";
 
 const BASE_URL = "";
 
