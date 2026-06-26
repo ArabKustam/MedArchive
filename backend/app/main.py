@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import init_db
-from .routers import documents, partners, search, services, stats, upload, verification
+from .routers import documents, meta, partners, search, services, stats, upload, verification
 
 
 @asynccontextmanager
@@ -41,6 +41,7 @@ app.include_router(documents.router)
 app.include_router(upload.router)
 app.include_router(verification.router)
 app.include_router(stats.router)
+app.include_router(meta.router)
 
 
 @app.get("/health", tags=["meta"])
