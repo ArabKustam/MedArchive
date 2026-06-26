@@ -1,4 +1,7 @@
-import { priceRows, type PriceRow } from "./mock-data";
+// Построение нормализованного каталога услуг из «сырых» строк прайсов.
+// Группируем по паре (название услуги, категория) и считаем агрегаты:
+// число клиник, минимальную / среднюю / максимальную цены резидента.
+import { priceRows, type PriceRow } from "@/shared/api/mock-data";
 
 export type ServiceCatalogItem = {
   id: string;

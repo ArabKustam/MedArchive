@@ -1,3 +1,7 @@
+// Универсальный компонент пагинации (FSD: shared/ui).
+// Параметры: текущая страница, размер, общее число элементов и колбэк смены страницы.
+// Сам определяет «окно» отображаемых номеров с многоточиями для длинных списков.
+
 type Props = {
   page: number;
   pageSize: number;
@@ -6,18 +10,22 @@ type Props = {
 };
 
 export function Pager({ page, pageSize, total, onChange }: Props) {
+  // Всего страниц (не меньше одной, чтобы избежать деления на ноль).
   const pages = Math.max(1, Math.ceil(total / pageSize));
+  // Скрываем пагинацию, если данные умещаются на одну страницу.
   if (pages <= 1) return null;
+
+  // Диапазон элементов, отображаемых на текущей странице (1-индексный).
   const from = (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
 
+  // Собираем список номеров и многоточий: первая, последняя и соседние с текущей.
   const window: (number | "…")[] = [];
   const push = (v: number | "…") => {
     if (window[window.length - 1] !== v) window.push(v);
   };
   for (let i = 1; i <= pages; i++) {
     if (i === 1 || i === pages || Math.abs(i - page) <= 1) push(i);
-    else if (i < page) push("…");
     else push("…");
   }
 
@@ -28,6 +36,7 @@ export function Pager({ page, pageSize, total, onChange }: Props) {
         {total.toLocaleString("ru-RU")}
       </span>
       <div className="flex items-center gap-1">
+        {/* Кнопка «назад». Заблокирована на первой странице. */}
         <button
           type="button"
           onClick={() => onChange(Math.max(1, page - 1))}
@@ -57,6 +66,7 @@ export function Pager({ page, pageSize, total, onChange }: Props) {
             </button>
           ),
         )}
+        {/* Кнопка «вперёд». Заблокирована на последней странице. */}
         <button
           type="button"
           onClick={() => onChange(Math.min(pages, page + 1))}
