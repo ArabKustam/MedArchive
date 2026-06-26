@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { Pager } from "../components/Pager";
 import {
@@ -34,9 +34,15 @@ export const Route = createFileRoute("/")({
 
 function SearchPage() {
   const [query, setQuery] = useState("");
+  const [debounced, setDebounced] = useState("");
   const [city, setCity] = useState<(typeof cities)[number]>("Все города");
   const [priceType, setPriceType] = useState<(typeof priceTypes)[number]>("Любая");
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
 
   const partnerCity = useMemo(
     () => Object.fromEntries(partners.map((p) => [p.id, p.city])) as Record<string, string>,
@@ -44,14 +50,14 @@ function SearchPage() {
   );
 
   const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = debounced.trim().toLowerCase();
     return priceRows.filter((row) => {
       if (q && !row.service.toLowerCase().includes(q) && !row.partnerName.toLowerCase().includes(q))
         return false;
       if (city !== "Все города" && partnerCity[row.partnerId] !== city) return false;
       return true;
     });
-  }, [query, city, partnerCity]);
+  }, [debounced, city, partnerCity]);
 
   const pageRows = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 

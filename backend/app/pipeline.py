@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from .models import Partner, PriceDocument, PriceHistory, PriceItem
 from .normalize import Normalizer
 from .parsers import iter_archive, parse_file
+from .validation import validate_item
 
 DATE_RE = re.compile(r"(20\d{2})[._-]?(\d{1,2})?[._-]?(\d{1,2})?")
 
@@ -72,14 +73,26 @@ def process_zip(db: Session, zip_path: Path, normalizer: Normalizer) -> List[Pri
                 matched = 0
                 for r in rows:
                     m = normalizer.match(r.service_name_raw)
+                    v = validate_item(
+                        db,
+                        partner_id=partner.partner_id,
+                        service_id=m.service_id,
+                        service_name_raw=r.service_name_raw,
+                        price_resident=r.price_resident_kzt,
+                        price_nonresident=r.price_nonresident_kzt,
+                        currency=r.currency_original,
+                        effective_date=doc.price_date,
+                    )
+                    if not v.is_valid:
+                        continue
                     item = PriceItem(
                         doc_id=doc.doc_id,
                         partner_id=partner.partner_id,
                         service_id=m.service_id,
                         service_name_raw=r.service_name_raw[:1024],
                         service_code_source=r.service_code_source,
-                        price_resident_kzt=r.price_resident_kzt,
-                        price_nonresident_kzt=r.price_nonresident_kzt,
+                        price_resident_kzt=v.price_resident_kzt,
+                        price_nonresident_kzt=v.price_nonresident_kzt,
                         currency_original=r.currency_original,
                         match_score=m.score,
                         match_status=m.status,
@@ -91,8 +104,8 @@ def process_zip(db: Session, zip_path: Path, normalizer: Normalizer) -> List[Pri
                             PriceHistory(
                                 partner_id=partner.partner_id,
                                 service_id=m.service_id,
-                                price_resident_kzt=r.price_resident_kzt,
-                                price_nonresident_kzt=r.price_nonresident_kzt,
+                                price_resident_kzt=v.price_resident_kzt,
+                                price_nonresident_kzt=v.price_nonresident_kzt,
                                 effective_date=doc.price_date or datetime.utcnow(),
                                 source_doc_id=doc.doc_id,
                             )
