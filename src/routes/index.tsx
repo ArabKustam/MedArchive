@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { AppLayout } from "../components/AppLayout";
+import { Pager } from "../components/Pager";
 import {
   cities,
   formatBYN,
@@ -9,6 +10,8 @@ import {
   partners,
   priceDocuments,
 } from "../lib/mock-data";
+
+const PAGE_SIZE = 25;
 
 export const Route = createFileRoute("/")({
   head: () => ({
