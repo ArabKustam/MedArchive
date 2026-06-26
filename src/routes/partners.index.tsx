@@ -1,6 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { AppLayout } from "../components/AppLayout";
-import { partners } from "../lib/mock-data";
+import { Pager } from "../components/Pager";
+import { cities, partners } from "../lib/mock-data";
+
+const PAGE_SIZE = 20;
 
 export const Route = createFileRoute("/partners/")({
   head: () => ({
@@ -22,6 +26,21 @@ export const Route = createFileRoute("/partners/")({
 });
 
 function PartnersList() {
+  const [query, setQuery] = useState("");
+  const [city, setCity] = useState<(typeof cities)[number]>("Все города");
+  const [page, setPage] = useState(1);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return partners.filter((p) => {
+      if (q && !p.name.toLowerCase().includes(q)) return false;
+      if (city !== "Все города" && p.city !== city) return false;
+      return true;
+    });
+  }, [query, city]);
+
+  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <AppLayout>
       <header className="mb-6">
@@ -31,7 +50,45 @@ function PartnersList() {
         </p>
       </header>
 
+      <div className="mb-4 flex flex-wrap items-end gap-4 rounded-xl bg-panel p-4 ring-1 ring-border">
+        <div className="min-w-[260px] flex-1">
+          <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Поиск по названию
+          </label>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Например: Клиника №1"
+            className="h-9 w-full rounded-md bg-card px-3 text-sm outline-none ring-1 ring-border focus:ring-2 focus:ring-brand"
+          />
+        </div>
+        <div className="w-48">
+          <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Город
+          </label>
+          <select
+            value={city}
+            onChange={(e) => {
+              setCity(e.target.value as (typeof cities)[number]);
+              setPage(1);
+            }}
+            className="h-9 w-full cursor-pointer rounded-md bg-card px-3 text-sm outline-none ring-1 ring-border focus:ring-2 focus:ring-brand"
+          >
+            {cities.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div className="overflow-hidden rounded-xl bg-panel ring-1 ring-border">
+        <div className="border-b border-border bg-muted/40 px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          Партнёров · {filtered.length}
+        </div>
         <table className="w-full border-collapse text-left">
           <thead>
             <tr className="border-b border-border bg-muted/30">
@@ -56,7 +113,7 @@ function PartnersList() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {partners.map((p) => (
+            {pageRows.map((p) => (
               <tr key={p.id} className="transition-colors hover:bg-muted/30">
                 <td className="px-4 py-3 text-sm font-medium">
                   <Link
@@ -96,6 +153,7 @@ function PartnersList() {
             ))}
           </tbody>
         </table>
+        <Pager page={page} pageSize={PAGE_SIZE} total={filtered.length} onChange={setPage} />
       </div>
     </AppLayout>
   );
