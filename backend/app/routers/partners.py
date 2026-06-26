@@ -19,7 +19,7 @@ router = APIRouter(prefix="/partners", tags=["partners"])
 def list_partners(
     query: Optional[str] = Query(None, description="Поиск по названию"),
     city: Optional[str] = Query(None),
-    status: Optional[str] = Query(None, regex="^(active|paused)$"),
+    status: Optional[str] = Query(None, pattern="^(active|paused)$"),
     pg: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
 ):

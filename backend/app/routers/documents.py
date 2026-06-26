@@ -18,7 +18,7 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.get("", response_model=Page[PriceDocumentOut])
 def list_documents(
     partner_id: Optional[str] = Query(None),
-    status: Optional[str] = Query(None, regex="^(queued|processing|done|error)$"),
+    status: Optional[str] = Query(None, pattern="^(queued|processing|done|error)$"),
     pg: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
 ):
