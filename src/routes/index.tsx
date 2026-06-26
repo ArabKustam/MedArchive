@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { AppLayout } from "../components/AppLayout";
+import { Pager } from "../components/Pager";
 import {
   cities,
   formatBYN,
@@ -9,6 +10,8 @@ import {
   partners,
   priceDocuments,
 } from "../lib/mock-data";
+
+const PAGE_SIZE = 25;
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -33,6 +36,7 @@ function SearchPage() {
   const [query, setQuery] = useState("");
   const [city, setCity] = useState<(typeof cities)[number]>("Все города");
   const [priceType, setPriceType] = useState<(typeof priceTypes)[number]>("Любая");
+  const [page, setPage] = useState(1);
 
   const partnerCity = useMemo(
     () => Object.fromEntries(partners.map((p) => [p.id, p.city])) as Record<string, string>,
@@ -48,6 +52,8 @@ function SearchPage() {
       return true;
     });
   }, [query, city, partnerCity]);
+
+  const pageRows = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const processing = priceDocuments.find((d) => d.status === "processing");
   const doneCount = priceDocuments.filter((d) => d.status === "done").length;
@@ -74,7 +80,10 @@ function SearchPage() {
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setPage(1);
+              }}
               placeholder="Например: МРТ головного мозга..."
               className="h-9 w-full rounded-md bg-card px-3 text-sm outline-none ring-1 ring-border transition-shadow focus:ring-2 focus:ring-brand"
             />
@@ -86,7 +95,10 @@ function SearchPage() {
             </label>
             <select
               value={city}
-              onChange={(e) => setCity(e.target.value as (typeof cities)[number])}
+              onChange={(e) => {
+                setCity(e.target.value as (typeof cities)[number]);
+                setPage(1);
+              }}
               className="h-9 w-full cursor-pointer rounded-md bg-card px-3 text-sm outline-none ring-1 ring-border focus:ring-2 focus:ring-brand"
             >
               {cities.map((c) => (
@@ -124,7 +136,7 @@ function SearchPage() {
         <div className="overflow-hidden rounded-xl bg-panel ring-1 ring-border">
           <div className="flex items-center justify-between border-b border-border bg-muted/40 px-4 py-2.5">
             <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Результаты · {results.length}
+              Результаты · {results.length.toLocaleString("ru-RU")}
             </span>
             <span className="text-[10px] text-muted-foreground">
               Сортировка: по релевантности
@@ -151,7 +163,7 @@ function SearchPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {results.map((row, idx) => (
+              {pageRows.map((row, idx) => (
                 <tr key={idx} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-3 text-sm font-medium">
                     <Link
@@ -193,6 +205,7 @@ function SearchPage() {
               )}
             </tbody>
           </table>
+          <Pager page={page} pageSize={PAGE_SIZE} total={results.length} onChange={setPage} />
         </div>
       </section>
 

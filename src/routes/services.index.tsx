@@ -2,58 +2,60 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { Pager } from "../components/Pager";
-import { cities, partners } from "../lib/mock-data";
+import { services, serviceCategories } from "../lib/services";
+import { formatBYN } from "../lib/mock-data";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 25;
 
-export const Route = createFileRoute("/partners/")({
+export const Route = createFileRoute("/services/")({
   head: () => ({
     meta: [
-      { title: "Клиники-партнёры · MedArchive" },
+      { title: "Каталог услуг · MedArchive" },
       {
         name: "description",
         content:
-          "Список клиник-партнёров MedArchive: контакты, статус интеграции и объём загруженных прайсов.",
+          "Единый справочник медицинских услуг с количеством клиник-партнёров и диапазоном цен.",
       },
-      { property: "og:title", content: "Клиники-партнёры · MedArchive" },
+      { property: "og:title", content: "Каталог услуг · MedArchive" },
       {
         property: "og:description",
-        content: "Список клиник-партнёров, объём загруженных прайсов и статус интеграции.",
+        content: "Справочник услуг MedArchive — клиники и диапазон цен по каждой позиции.",
       },
     ],
   }),
-  component: PartnersList,
+  component: ServicesPage,
 });
 
-function PartnersList() {
+function ServicesPage() {
   const [query, setQuery] = useState("");
-  const [city, setCity] = useState<(typeof cities)[number]>("Все города");
+  const [cat, setCat] = useState<(typeof serviceCategories)[number]>("Все категории");
   const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return partners.filter((p) => {
-      if (q && !p.name.toLowerCase().includes(q)) return false;
-      if (city !== "Все города" && p.city !== city) return false;
+    return services.filter((s) => {
+      if (q && !s.name.toLowerCase().includes(q)) return false;
+      if (cat !== "Все категории" && s.category !== cat) return false;
       return true;
     });
-  }, [query, city]);
+  }, [query, cat]);
 
   const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <AppLayout>
       <header className="mb-6">
-        <h1 className="mb-2 text-2xl font-semibold tracking-tight">Клиники-партнёры</h1>
+        <h1 className="mb-2 text-2xl font-semibold tracking-tight">Каталог услуг</h1>
         <p className="max-w-[56ch] text-sm text-muted-foreground">
-          {partners.length} активных партнёров с автоматической загрузкой прайс-листов.
+          {services.length.toLocaleString("ru-RU")} нормализованных позиций справочника. Для
+          каждой услуги — число клиник, диапазон и средняя цена.
         </p>
       </header>
 
       <div className="mb-4 flex flex-wrap items-end gap-4 rounded-xl bg-panel p-4 ring-1 ring-border">
-        <div className="min-w-[260px] flex-1">
+        <div className="min-w-[280px] flex-1">
           <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Поиск по названию
+            Поиск услуги
           </label>
           <input
             type="text"
@@ -62,23 +64,23 @@ function PartnersList() {
               setQuery(e.target.value);
               setPage(1);
             }}
-            placeholder="Например: Клиника №1"
+            placeholder="Например: УЗИ, МРТ, консультация..."
             className="h-9 w-full rounded-md bg-card px-3 text-sm outline-none ring-1 ring-border focus:ring-2 focus:ring-brand"
           />
         </div>
-        <div className="w-48">
+        <div className="w-56">
           <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Город
+            Категория
           </label>
           <select
-            value={city}
+            value={cat}
             onChange={(e) => {
-              setCity(e.target.value as (typeof cities)[number]);
+              setCat(e.target.value as (typeof serviceCategories)[number]);
               setPage(1);
             }}
             className="h-9 w-full cursor-pointer rounded-md bg-card px-3 text-sm outline-none ring-1 ring-border focus:ring-2 focus:ring-brand"
           >
-            {cities.map((c) => (
+            {serviceCategories.map((c) => (
               <option key={c}>{c}</option>
             ))}
           </select>
@@ -86,71 +88,66 @@ function PartnersList() {
       </div>
 
       <div className="overflow-hidden rounded-xl bg-panel ring-1 ring-border">
-        <div className="border-b border-border bg-muted/40 px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          Партнёров · {filtered.length}
+        <div className="flex items-center justify-between border-b border-border bg-muted/40 px-4 py-2.5">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Услуг · {filtered.length.toLocaleString("ru-RU")}
+          </span>
         </div>
         <table className="w-full border-collapse text-left">
           <thead>
             <tr className="border-b border-border bg-muted/30">
               <th className="px-4 py-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Клиника
+                Услуга
               </th>
               <th className="px-4 py-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Город
+                Категория
               </th>
               <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Услуг
+                Клиник
               </th>
               <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Документов
+                Мин.
               </th>
               <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Статус
+                Средняя
               </th>
               <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Обновлено
+                Макс.
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {pageRows.map((p) => (
-              <tr key={p.id} className="transition-colors hover:bg-muted/30">
+            {pageRows.map((s) => (
+              <tr key={s.id} className="hover:bg-muted/30">
                 <td className="px-4 py-3 text-sm font-medium">
                   <Link
-                    to="/partners/$id"
-                    params={{ id: p.id }}
+                    to="/services/$id"
+                    params={{ id: s.id }}
                     className="text-brand hover:underline"
                   >
-                    {p.name}
+                    {s.name}
                   </Link>
-                  <div className="text-[11px] text-muted-foreground">{p.address}</div>
                 </td>
-                <td className="px-4 py-3 text-sm">{p.city}</td>
+                <td className="px-4 py-3 text-sm text-muted-foreground">{s.category}</td>
+                <td className="px-4 py-3 text-right text-sm tabular-nums">{s.partnersCount}</td>
                 <td className="px-4 py-3 text-right text-sm tabular-nums">
-                  {p.servicesCount.toLocaleString("ru-RU")}
+                  {s.minPrice ? formatBYN(s.minPrice) : "—"}
                 </td>
-                <td className="px-4 py-3 text-right text-sm tabular-nums">{p.docsCount}</td>
-                <td className="px-4 py-3 text-right">
-                  <span
-                    className={
-                      "inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-semibold uppercase " +
-                      (p.status === "active"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-zinc-200 text-zinc-600")
-                    }
-                  >
-                    <span
-                      className={
-                        "size-1.5 rounded-full " +
-                        (p.status === "active" ? "bg-emerald-500" : "bg-zinc-400")
-                      }
-                    />
-                    {p.status === "active" ? "Активен" : "Пауза"}
-                  </span>
+                <td className="px-4 py-3 text-right text-sm font-medium tabular-nums">
+                  {s.avgPrice ? formatBYN(s.avgPrice) : "—"}
                 </td>
-                <td className="px-4 py-3 text-right text-[11px] text-zinc-400">{p.lastUpload}</td>
+                <td className="px-4 py-3 text-right text-sm tabular-nums text-muted-foreground">
+                  {s.maxPrice ? formatBYN(s.maxPrice) : "—"}
+                </td>
               </tr>
             ))}
+            {pageRows.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  Ничего не найдено.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
         <Pager page={page} pageSize={PAGE_SIZE} total={filtered.length} onChange={setPage} />

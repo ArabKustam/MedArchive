@@ -10,6 +10,7 @@ type NavItem = {
 
 const mainNav: NavItem[] = [
   { to: "/", label: "Поиск услуг" },
+  { to: "/services", label: "Каталог услуг" },
   { to: "/partners", label: "Клиники-партнёры" },
 ];
 

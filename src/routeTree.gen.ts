@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ServicesIndexRouteImport } from './routes/services.index'
 import { Route as PartnersIndexRouteImport } from './routes/partners.index'
+import { Route as ServicesIdRouteImport } from './routes/services.$id'
 import { Route as PartnersIdRouteImport } from './routes/partners.$id'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -30,9 +32,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ServicesIndexRoute = ServicesIndexRouteImport.update({
+  id: '/services/',
+  path: '/services/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PartnersIndexRoute = PartnersIndexRouteImport.update({
   id: '/partners/',
   path: '/partners/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ServicesIdRoute = ServicesIdRouteImport.update({
+  id: '/services/$id',
+  path: '/services/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PartnersIdRoute = PartnersIdRouteImport.update({
@@ -46,14 +58,18 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/partners/$id': typeof PartnersIdRoute
+  '/services/$id': typeof ServicesIdRoute
   '/partners/': typeof PartnersIndexRoute
+  '/services/': typeof ServicesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/partners/$id': typeof PartnersIdRoute
+  '/services/$id': typeof ServicesIdRoute
   '/partners': typeof PartnersIndexRoute
+  '/services': typeof ServicesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -61,20 +77,38 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/partners/$id': typeof PartnersIdRoute
+  '/services/$id': typeof ServicesIdRoute
   '/partners/': typeof PartnersIndexRoute
+  '/services/': typeof ServicesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/sitemap.xml' | '/partners/$id' | '/partners/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/sitemap.xml'
+    | '/partners/$id'
+    | '/services/$id'
+    | '/partners/'
+    | '/services/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/sitemap.xml' | '/partners/$id' | '/partners'
+  to:
+    | '/'
+    | '/admin'
+    | '/sitemap.xml'
+    | '/partners/$id'
+    | '/services/$id'
+    | '/partners'
+    | '/services'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/sitemap.xml'
     | '/partners/$id'
+    | '/services/$id'
     | '/partners/'
+    | '/services/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -82,7 +116,9 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   PartnersIdRoute: typeof PartnersIdRoute
+  ServicesIdRoute: typeof ServicesIdRoute
   PartnersIndexRoute: typeof PartnersIndexRoute
+  ServicesIndexRoute: typeof ServicesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -108,11 +144,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/services/': {
+      id: '/services/'
+      path: '/services'
+      fullPath: '/services/'
+      preLoaderRoute: typeof ServicesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/partners/': {
       id: '/partners/'
       path: '/partners'
       fullPath: '/partners/'
       preLoaderRoute: typeof PartnersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/services/$id': {
+      id: '/services/$id'
+      path: '/services/$id'
+      fullPath: '/services/$id'
+      preLoaderRoute: typeof ServicesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/partners/$id': {
@@ -130,18 +180,10 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   PartnersIdRoute: PartnersIdRoute,
+  ServicesIdRoute: ServicesIdRoute,
   PartnersIndexRoute: PartnersIndexRoute,
+  ServicesIndexRoute: ServicesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
