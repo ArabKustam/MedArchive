@@ -92,7 +92,7 @@ function AdminDocuments() {
         </table>
       </div>
 
-      <Pager page={page} pageSize={PAGE_SIZE} total={filtered.length} onPageChange={setPage} />
+      <Pager page={page} pageSize={PAGE_SIZE} total={filtered.length} onChange={setPage} />
     </div>
   );
 }

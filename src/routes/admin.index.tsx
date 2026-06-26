@@ -4,9 +4,9 @@ import {
   priceDocuments,
   priceRows,
   partners,
-  services,
   verificationQueue,
 } from "../lib/mock-data";
+import { services } from "../lib/services";
 
 export const Route = createFileRoute("/admin/")({
   component: AdminDashboard,
