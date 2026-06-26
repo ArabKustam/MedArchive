@@ -1,3 +1,7 @@
+// Корневой роут (FSD: app layer).
+// Подключает шрифты, глобальные стили, мета-данные, провайдер TanStack Query,
+// а также общие notFound/error компоненты.
+
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
 import "@fontsource/inter/600.css";
@@ -15,8 +19,9 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { AppLayout } from "../components/AppLayout";
+import { AppLayout } from "@/widgets/app-layout";
 
+/** Компонент 404. Отображается, когда роут не найден. */
 function NotFoundComponent() {
   return (
     <AppLayout>
@@ -39,6 +44,7 @@ function NotFoundComponent() {
   );
 }
 
+/** Компонент глобального error-boundary. */
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
@@ -59,6 +65,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <div className="mt-6 flex gap-3">
           <button
             onClick={() => {
+              // invalidate() перезапускает loader'ы; reset() сбрасывает границу ошибки.
               router.invalidate();
               reset();
             }}
@@ -98,11 +105,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "MedArchive — архив прайсов клиник-партнёров" },
-      { name: "description", content: "Pixel Perfect is a web application that precisely replicates user-provided screenshots for UI development." },
-      { property: "og:description", content: "Pixel Perfect is a web application that precisely replicates user-provided screenshots for UI development." },
-      { name: "twitter:description", content: "Pixel Perfect is a web application that precisely replicates user-provided screenshots for UI development." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8b47c525-34a5-4248-b61e-bc2b65f106c1/id-preview-137925ce--f21ebc35-10de-47b5-9a03-59cbc12344f6.lovable.app-1782467959290.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8b47c525-34a5-4248-b61e-bc2b65f106c1/id-preview-137925ce--f21ebc35-10de-47b5-9a03-59cbc12344f6.lovable.app-1782467959290.png" },
+      { name: "twitter:description", content: "Архив прайсов клиник-партнёров MedArchive." },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
@@ -112,6 +115,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+/** Корневая HTML-обёртка SSR. */
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="ru">
@@ -126,6 +130,7 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+/** Корневой компонент: оборачивает выдачу в QueryClientProvider. */
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
