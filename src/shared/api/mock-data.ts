@@ -32,7 +32,7 @@ export const partnerHistory: Record<string, HistoryPoint[]> = {};
 export const cities = ["Все города"] as const;
 
 // Типы цен для фильтра поиска.
-export const priceTypes = ["Любая", "Резидент", "Нерезидент"] as const;
+export const priceTypes = ["Любая", "Резидент", "Не-резидент"] as const;
 
 // Прайс-лист партнёра по id (пусто — данные придут из backend).
 export const partnerPriceList: Record<string, PriceRow[]> = {};
