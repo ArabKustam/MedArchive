@@ -14,8 +14,12 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ServicesIndexRouteImport } from './routes/services.index'
 import { Route as PartnersIndexRouteImport } from './routes/partners.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ServicesIdRouteImport } from './routes/services.$id'
 import { Route as PartnersIdRouteImport } from './routes/partners.$id'
+import { Route as AdminVerifyRouteImport } from './routes/admin.verify'
+import { Route as AdminUploadRouteImport } from './routes/admin.upload'
+import { Route as AdminDocumentsRouteImport } from './routes/admin.documents'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -42,6 +46,11 @@ const PartnersIndexRoute = PartnersIndexRouteImport.update({
   path: '/partners/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
 const ServicesIdRoute = ServicesIdRouteImport.update({
   id: '/services/$id',
   path: '/services/$id',
@@ -52,32 +61,58 @@ const PartnersIdRoute = PartnersIdRouteImport.update({
   path: '/partners/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminVerifyRoute = AdminVerifyRouteImport.update({
+  id: '/verify',
+  path: '/verify',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUploadRoute = AdminUploadRouteImport.update({
+  id: '/upload',
+  path: '/upload',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDocumentsRoute = AdminDocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/documents': typeof AdminDocumentsRoute
+  '/admin/upload': typeof AdminUploadRoute
+  '/admin/verify': typeof AdminVerifyRoute
   '/partners/$id': typeof PartnersIdRoute
   '/services/$id': typeof ServicesIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/partners/': typeof PartnersIndexRoute
   '/services/': typeof ServicesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/documents': typeof AdminDocumentsRoute
+  '/admin/upload': typeof AdminUploadRoute
+  '/admin/verify': typeof AdminVerifyRoute
   '/partners/$id': typeof PartnersIdRoute
   '/services/$id': typeof ServicesIdRoute
+  '/admin': typeof AdminIndexRoute
   '/partners': typeof PartnersIndexRoute
   '/services': typeof ServicesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/documents': typeof AdminDocumentsRoute
+  '/admin/upload': typeof AdminUploadRoute
+  '/admin/verify': typeof AdminVerifyRoute
   '/partners/$id': typeof PartnersIdRoute
   '/services/$id': typeof ServicesIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/partners/': typeof PartnersIndexRoute
   '/services/': typeof ServicesIndexRoute
 }
@@ -87,17 +122,24 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/sitemap.xml'
+    | '/admin/documents'
+    | '/admin/upload'
+    | '/admin/verify'
     | '/partners/$id'
     | '/services/$id'
+    | '/admin/'
     | '/partners/'
     | '/services/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
     | '/sitemap.xml'
+    | '/admin/documents'
+    | '/admin/upload'
+    | '/admin/verify'
     | '/partners/$id'
     | '/services/$id'
+    | '/admin'
     | '/partners'
     | '/services'
   id:
@@ -105,15 +147,19 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/sitemap.xml'
+    | '/admin/documents'
+    | '/admin/upload'
+    | '/admin/verify'
     | '/partners/$id'
     | '/services/$id'
+    | '/admin/'
     | '/partners/'
     | '/services/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   PartnersIdRoute: typeof PartnersIdRoute
   ServicesIdRoute: typeof ServicesIdRoute
@@ -158,6 +204,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartnersIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/services/$id': {
       id: '/services/$id'
       path: '/services/$id'
@@ -172,12 +225,49 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartnersIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/verify': {
+      id: '/admin/verify'
+      path: '/verify'
+      fullPath: '/admin/verify'
+      preLoaderRoute: typeof AdminVerifyRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/upload': {
+      id: '/admin/upload'
+      path: '/upload'
+      fullPath: '/admin/upload'
+      preLoaderRoute: typeof AdminUploadRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/documents': {
+      id: '/admin/documents'
+      path: '/documents'
+      fullPath: '/admin/documents'
+      preLoaderRoute: typeof AdminDocumentsRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
+interface AdminRouteChildren {
+  AdminDocumentsRoute: typeof AdminDocumentsRoute
+  AdminUploadRoute: typeof AdminUploadRoute
+  AdminVerifyRoute: typeof AdminVerifyRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminDocumentsRoute: AdminDocumentsRoute,
+  AdminUploadRoute: AdminUploadRoute,
+  AdminVerifyRoute: AdminVerifyRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   PartnersIdRoute: PartnersIdRoute,
   ServicesIdRoute: ServicesIdRoute,
