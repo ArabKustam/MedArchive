@@ -31,6 +31,12 @@ export const partnerHistory: Record<string, HistoryPoint[]> = {};
 // Список городов для селектов: только опция «Все города».
 export const cities = ["Все города"] as const;
 
+// Типы цен для фильтра поиска.
+export const priceTypes = ["Любая", "Резидент", "Нерезидент"] as const;
+
+// Прайс-лист партнёра по id (пусто — данные придут из backend).
+export const partnerPriceList: Record<string, PriceRow[]> = {};
+
 // Поиск партнёра по id. Без данных всегда вернёт undefined.
 export function getPartner(id: string): Partner | undefined {
   return partners.find((p) => p.id === id);
