@@ -6,7 +6,7 @@ import { partners, priceDocuments } from "../lib/mock-data";
 const PAGE_SIZE = 15;
 
 export const Route = createFileRoute("/admin/documents")({
-  component: AdminDocuments;
+  component: AdminDocuments,
 });
 
 function AdminDocuments() {
