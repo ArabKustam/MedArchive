@@ -29,9 +29,8 @@ export function UploadDropzone() {
     if (!files || files.length === 0) return;
 
     setStatusAlert(null);
-    const fileArray = Array.from(files);
-    const count = fileArray.length;
-    setLoadingText(count > 1 ? `Регистрация пакета из ${count} файлов...` : "Регистрация файла и запуск распознавания...");
+    const count = files.length;
+    setLoadingText(count > 1 ? `Регистрация ${count} файлов и запуск фоновой обработки...` : "Регистрация файла и запуск распознавания...");
     setIsLoading(true);
 
     try {
@@ -48,7 +47,7 @@ export function UploadDropzone() {
 
       setStatusAlert({
         type: "success",
-        text: `Зарегистрировано файлов: ${uploadRes.total_files}. Все файлы отправлены на фоновую обработку!`,
+        text: `Успешно зарегистрировано файлов: ${uploadRes.total_files}. Обработка выполняется последовательно в фоновом режиме!`,
       });
 
       // Обновляем состояние запросов в кэше

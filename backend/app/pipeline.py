@@ -18,8 +18,7 @@ from .normalize import Normalizer, load_normalizer
 from .parsers import ExtractedRow, iter_archive, parse_file
 from .validation import validate_item
 
-logger = logging.getLogger(__name__)
-_pipeline_lock = threading.Lock()
+_BG_QUEUE_LOCK = threading.Lock()
 
 DATE_RE = re.compile(r"(20\d{2})[._-]?(\d{1,2})?[._-]?(\d{1,2})?")
 
@@ -322,15 +321,20 @@ def process_document_bg(doc_id: str):
 
 
 def process_queue_bg(doc_ids: List[str]):
-    """Background task worker processing queued documents sequentially one-by-one."""
-    from .db import SessionLocal
-    for doc_id in doc_ids:
-        try:
-            with SessionLocal() as db:
-                doc = db.get(PriceDocument, doc_id)
-                if doc:
+    """Background task worker processing queued documents sequentially one-by-one in natural order."""
+    with _BG_QUEUE_LOCK:
+        from .db import SessionLocal
+        with SessionLocal() as db:
+            normalizer = load_normalizer(db)
+            docs = (
+                db.query(PriceDocument)
+                .filter(PriceDocument.doc_id.in_(doc_ids))
+                .order_by(PriceDocument.uploaded_at.asc(), PriceDocument.filename.asc())
+                .all()
+            )
+            for doc in docs:
+                try:
                     logger.info(f"[Queue Worker] Processing queued document {doc.filename}...")
-                    normalizer = load_normalizer(db)
-                    process_document(db, doc_id, normalizer)
-        except Exception as e:  # noqa: BLE001
-            logger.error(f"[Queue Worker] Error processing document {doc_id}: {e}")
+                    process_document(db, doc.doc_id, normalizer)
+                except Exception as e:  # noqa: BLE001
+                    logger.error(f"[Queue Worker] Error processing document {doc.doc_id}: {e}")

@@ -42,6 +42,7 @@ export type PriceItemDTO = {
   category?: string | null;
   service_name_raw: string;
   service_code_source: string | null;
+  category?: string | null;
   price_resident_kzt: number | null;
   price_nonresident_kzt: number | null;
   currency_original: string;

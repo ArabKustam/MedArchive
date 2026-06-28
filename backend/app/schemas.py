@@ -55,6 +55,7 @@ class PriceItemOut(BaseModel):
     category: Optional[str] = None
     service_name_raw: str
     service_code_source: Optional[str] = None
+    category: Optional[str] = "Медицинские услуги"
     price_resident_kzt: Optional[float] = None
     price_nonresident_kzt: Optional[float] = None
     currency_original: str = "KZT"

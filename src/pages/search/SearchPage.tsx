@@ -8,6 +8,7 @@ import { AppLayout } from "@/widgets/app-layout";
 import { searchQuery } from "@/shared/api/queries";
 import { formatBYN } from "@/shared/api/mock-data";
 import { Pager } from "@/shared/ui/Pager";
+import { exportAllSearchResults } from "@/shared/lib/export-utils";
 import type { PriceItemDTO } from "@/shared/api/types";
 import { ArrowUpDown, ArrowUp, ArrowDown, Download, Search as SearchIcon, RefreshCw } from "lucide-react";
 
@@ -88,7 +89,7 @@ export function SearchPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => alert("Выгрузка результатов поиска в CSV")}
+              onClick={() => exportAllSearchResults({ query: searchTerm || undefined, sort_by: sortBy }, "csv")}
               className="flex items-center gap-1.5 border border-[#d4e4d4] bg-[#f4fcf4] hover:bg-[#eaf4ea] text-xs font-bold text-[#1b4332] px-3.5 py-1.5 rounded-xl transition-all cursor-pointer"
             >
               <Download className="size-3.5 text-[#2d6a4f]" />
@@ -96,7 +97,7 @@ export function SearchPage() {
             </button>
             <button
               type="button"
-              onClick={() => alert("Выгрузка результатов поиска в XLSX")}
+              onClick={() => exportAllSearchResults({ query: searchTerm || undefined, sort_by: sortBy }, "xlsx")}
               className="flex items-center gap-1.5 border border-[#d4e4d4] bg-[#f4fcf4] hover:bg-[#eaf4ea] text-xs font-bold text-[#1b4332] px-3.5 py-1.5 rounded-xl transition-all cursor-pointer"
             >
               <Download className="size-3.5 text-[#2d6a4f]" />
@@ -146,7 +147,7 @@ export function SearchPage() {
                     className="py-3.5 px-4 rounded-l-xl cursor-pointer hover:bg-[#eaf4ea] transition-colors select-none"
                   >
                     <div className="flex items-center gap-1.5">
-                      <span>Услуга</span>
+                      <span>Наименование услуги / Категория</span>
                       {sortBy === "name_asc" ? (
                         <ArrowUp className="size-3.5 text-[#2d6a4f]" />
                       ) : sortBy === "name_desc" ? (
@@ -157,16 +158,15 @@ export function SearchPage() {
                     </div>
                   </th>
 
-                  <th className="py-3.5 px-4">Категория</th>
                   <th className="py-3.5 px-4">Клиника / Партнёр</th>
 
-                  {/* Кликабельный заголовок Цена */}
+                  {/* Кликабельный заголовок Цена Резидент */}
                   <th
                     onClick={handleSortPrice}
                     className="py-3.5 px-4 text-right cursor-pointer hover:bg-[#eaf4ea] transition-colors select-none"
                   >
                     <div className="flex items-center justify-end gap-1.5">
-                      <span>Резидент</span>
+                      <span>Цена (Резидент)</span>
                       {sortBy === "price_asc" ? (
                         <ArrowUp className="size-3.5 text-[#2d6a4f]" />
                       ) : sortBy === "price_desc" ? (
@@ -177,7 +177,10 @@ export function SearchPage() {
                     </div>
                   </th>
 
-                  <th className="py-3.5 px-4 text-right">Нерезидент</th>
+                  {/* Заголовок Цена Нерезидент */}
+                  <th className="py-3.5 px-4 text-right">
+                    <span>Цена (Нерезидент)</span>
+                  </th>
 
                   {/* Кликабельный заголовок Совпадение */}
                   <th
@@ -198,11 +201,11 @@ export function SearchPage() {
               <tbody className="divide-y divide-[#eaf4ea]">
                 {items.map((row) => (
                   <tr key={row.item_id} className="hover:bg-[#f4fcf4]/80 transition-colors">
-                    <td className="py-4 px-4 text-xs font-bold text-[#1c2e1d]">{row.service_name_raw}</td>
-                    <td className="py-4 px-4 text-xs text-[#52796f]">
-                      <span className="inline-block rounded-lg bg-[#eaf4ea] px-2 py-0.5 text-[11px] font-bold text-[#1b4332]">
-                        {row.category || "Общая медицина"}
-                      </span>
+                    <td className="py-4 px-4 text-xs font-bold text-[#1c2e1d] max-w-xs">
+                      <div>{row.service_name_raw}</div>
+                      <div className="mt-1 inline-block rounded-md bg-[#eaf4ea] px-2 py-0.5 text-[10px] font-bold text-[#2d6a4f]">
+                        📂 {row.category || "Медицинские услуги"}
+                      </div>
                     </td>
                     <td className="py-4 px-4 text-xs text-[#52796f] font-semibold">
                       {row.partner_name || row.partner_id}
@@ -211,7 +214,11 @@ export function SearchPage() {
                       {row.price_resident_kzt != null ? formatBYN(row.price_resident_kzt) : "—"}
                     </td>
                     <td className="py-4 px-4 text-right text-xs font-bold tabular-nums text-[#52796f]">
-                      {row.price_nonresident_kzt != null ? formatBYN(row.price_nonresident_kzt) : (row.price_resident_kzt != null ? formatBYN(row.price_resident_kzt) : "—")}
+                      {row.price_nonresident_kzt != null
+                        ? formatBYN(row.price_nonresident_kzt)
+                        : row.price_resident_kzt != null
+                          ? formatBYN(row.price_resident_kzt * 1.3)
+                          : "—"}
                     </td>
                     <td className="py-4 px-4 text-right text-xs tabular-nums font-bold text-[#2d6a4f]">
                       {Math.round(row.match_score * 100)}%
@@ -221,7 +228,7 @@ export function SearchPage() {
 
                 {items.length === 0 && !searchReq.isFetching && (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-xs text-[#52796f] font-medium">
+                    <td colSpan={5} className="py-12 text-center text-xs text-[#52796f] font-medium">
                       {searchTerm ? `По запросу «${searchTerm}» ничего не найдено.` : "Позиций не найдено."}
                     </td>
                   </tr>

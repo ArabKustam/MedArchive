@@ -65,14 +65,14 @@ export const partnerQuery = (id: string) =>
     queryFn: () => apiFetch<PartnerDTO>(`/partners/${encodeURIComponent(id)}`),
   });
 
-export const partnerPricesQuery = (id: string, params: { query?: string; page?: number } = {}) =>
+export const partnerPricesQuery = (id: string, params: { query?: string; page?: number; page_size?: number } = {}) =>
   queryOptions({
     queryKey: ["partner", id, "prices", params],
     queryFn: () =>
       apiFetch<Page<PriceItemDTO>>(`/partners/${encodeURIComponent(id)}/prices`, {
         query: params.query,
         page: params.page ?? 1,
-        page_size: PAGE_SIZE,
+        page_size: params.page_size ?? PAGE_SIZE,
       }),
   });
 
@@ -134,6 +134,7 @@ export type SearchParams = {
   matched_only?: boolean;
   sort_by?: string;
   page?: number;
+  page_size?: number;
 };
 
 export const searchQuery = (params: SearchParams = {}) =>
@@ -143,7 +144,7 @@ export const searchQuery = (params: SearchParams = {}) =>
       apiFetch<Page<PriceItemDTO>>("/search", {
         ...params,
         page: params.page ?? 1,
-        page_size: PAGE_SIZE,
+        page_size: params.page_size ?? PAGE_SIZE,
       }),
   });
 
@@ -213,12 +214,13 @@ export async function decideVerification(
   });
 }
 
-export async function uploadDocument(file: File | File[] | FileList): Promise<UploadResultDTO> {
+export async function uploadDocument(fileOrFiles: File | FileList | File[]): Promise<UploadResultDTO> {
   const formData = new FormData();
-  if (file instanceof FileList || Array.isArray(file)) {
-    Array.from(file).forEach((f) => formData.append("files", f));
+  if (fileOrFiles instanceof File) {
+    formData.append("file", fileOrFiles);
   } else {
-    formData.append("file", file);
+    const arr = Array.from(fileOrFiles);
+    arr.forEach((f) => formData.append("files", f));
   }
   return apiFetch<UploadResultDTO>("/upload", undefined, {
     method: "POST",
