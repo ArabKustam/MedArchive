@@ -65,14 +65,14 @@ export const partnerQuery = (id: string) =>
     queryFn: () => apiFetch<PartnerDTO>(`/partners/${encodeURIComponent(id)}`),
   });
 
-export const partnerPricesQuery = (id: string, params: { query?: string; page?: number } = {}) =>
+export const partnerPricesQuery = (id: string, params: { query?: string; page?: number; page_size?: number } = {}) =>
   queryOptions({
     queryKey: ["partner", id, "prices", params],
     queryFn: () =>
       apiFetch<Page<PriceItemDTO>>(`/partners/${encodeURIComponent(id)}/prices`, {
         query: params.query,
         page: params.page ?? 1,
-        page_size: PAGE_SIZE,
+        page_size: params.page_size ?? PAGE_SIZE,
       }),
   });
 
@@ -134,6 +134,7 @@ export type SearchParams = {
   matched_only?: boolean;
   sort_by?: string;
   page?: number;
+  page_size?: number;
 };
 
 export const searchQuery = (params: SearchParams = {}) =>
@@ -143,7 +144,7 @@ export const searchQuery = (params: SearchParams = {}) =>
       apiFetch<Page<PriceItemDTO>>("/search", {
         ...params,
         page: params.page ?? 1,
-        page_size: PAGE_SIZE,
+        page_size: params.page_size ?? PAGE_SIZE,
       }),
   });
 

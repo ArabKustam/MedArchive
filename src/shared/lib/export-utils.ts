@@ -1,6 +1,8 @@
 /**
- * Утилиты для экспорта табличных данных в форматы CSV и Excel (XLSX/XLS).
+ * Утилиты для экспорта всех табличных данных в форматы CSV и Excel (XLSX/XLS).
  */
+import { apiFetch } from "../api/client";
+import type { Page, PriceItemDTO } from "../api/types";
 
 interface ExportItem {
   service_name_raw?: string;
@@ -94,4 +96,47 @@ export function exportToXLSX(items: ExportItem[], filenamePrefix: string = "expo
 
   const dateStr = new Date().toISOString().slice(0, 10);
   downloadFile(excelTable, `${filenamePrefix}_${dateStr}.xls`, "application/vnd.ms-excel;charset=utf-8;");
+}
+
+/**
+ * Загрузка ВСЕХ позиций партнёра без пагинации и экспорт
+ */
+export async function exportAllPartnerPrices(partnerId: string, partnerName: string, format: "csv" | "xlsx") {
+  if (!partnerId) return;
+  try {
+    const data = await apiFetch<Page<PriceItemDTO>>(`/partners/${encodeURIComponent(partnerId)}/prices`, {
+      page: 1,
+      page_size: 50000,
+    });
+    const items = data.items.map((it) => ({ ...it, partner_name: partnerName }));
+    if (format === "csv") {
+      exportToCSV(items, partnerName || "partner");
+    } else {
+      exportToXLSX(items, partnerName || "partner");
+    }
+  } catch (e) {
+    console.error(e);
+    alert("Ошибка при выгрузке данных клиники");
+  }
+}
+
+/**
+ * Загрузка ВСЕХ результатов поиска без пагинации и экспорт
+ */
+export async function exportAllSearchResults(searchParams: Record<string, any>, format: "csv" | "xlsx") {
+  try {
+    const data = await apiFetch<Page<PriceItemDTO>>("/search", {
+      ...searchParams,
+      page: 1,
+      page_size: 50000,
+    });
+    if (format === "csv") {
+      exportToCSV(data.items, "search_results");
+    } else {
+      exportToXLSX(data.items, "search_results");
+    }
+  } catch (e) {
+    console.error(e);
+    alert("Ошибка при выгрузке результатов поиска");
+  }
 }

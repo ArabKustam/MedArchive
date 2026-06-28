@@ -8,7 +8,7 @@ import { partnersQuery, partnerPricesQuery } from "@/shared/api/queries";
 import { formatBYN } from "@/shared/api/mock-data";
 import type { PartnerDTO, PriceItemDTO } from "@/shared/api/types";
 import { Pager } from "@/shared/ui/Pager";
-import { exportToCSV, exportToXLSX } from "@/shared/lib/export-utils";
+import { exportAllPartnerPrices } from "@/shared/lib/export-utils";
 import { RefreshCw, Download, Search, CheckCircle2, Building2, ShieldCheck } from "lucide-react";
 
 export function PartnersListPage() {
@@ -133,7 +133,7 @@ export function PartnersListPage() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => exportToCSV(priceItems, activePartner?.name || "partner")}
+                    onClick={() => activePartner && exportAllPartnerPrices(activePartner.partner_id, activePartner.name, "csv")}
                     className="flex items-center gap-1.5 border border-[#d4e4d4] bg-[#f4fcf4] hover:bg-[#eaf4ea] text-xs font-bold text-[#1b4332] px-3.5 py-2 rounded-xl transition-all cursor-pointer"
                   >
                     <Download className="size-3.5 text-[#2d6a4f]" />
@@ -141,7 +141,7 @@ export function PartnersListPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => exportToXLSX(priceItems, activePartner?.name || "partner")}
+                    onClick={() => activePartner && exportAllPartnerPrices(activePartner.partner_id, activePartner.name, "xlsx")}
                     className="flex items-center gap-1.5 border border-[#d4e4d4] bg-[#f4fcf4] hover:bg-[#eaf4ea] text-xs font-bold text-[#1b4332] px-3.5 py-2 rounded-xl transition-all cursor-pointer"
                   >
                     <Download className="size-3.5 text-[#2d6a4f]" />
