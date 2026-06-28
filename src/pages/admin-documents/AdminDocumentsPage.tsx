@@ -10,6 +10,7 @@ import { StatusPill } from "@/entities/price-document";
 import { DeleteDocumentButton } from "@/features/document-delete/ui/DeleteDocumentButton";
 import { DocumentViewerModal } from "@/features/document-view/ui/DocumentViewerModal";
 import { documentsQuery, partnersQuery } from "@/shared/api/queries";
+import { TableSkeleton, ErrorState } from "@/shared/ui/AsyncState";
 import { AppLayout } from "@/widgets/app-layout";
 import { RefreshCw } from "lucide-react";
 import type { PriceDocumentDTO } from "@/shared/api/types";
