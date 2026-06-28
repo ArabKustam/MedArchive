@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import shutil
+import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -18,6 +19,7 @@ from .parsers import ExtractedRow, iter_archive, parse_file
 from .validation import validate_item
 
 logger = logging.getLogger(__name__)
+_BG_QUEUE_LOCK = threading.Lock()
 
 DATE_RE = re.compile(r"(20\d{2})[._-]?(\d{1,2})?[._-]?(\d{1,2})?")
 
@@ -313,18 +315,19 @@ def process_document_bg(doc_id: str):
 
 def process_queue_bg(doc_ids: List[str]):
     """Background task worker processing queued documents sequentially one-by-one in natural order."""
-    from .db import SessionLocal
-    with SessionLocal() as db:
-        normalizer = load_normalizer(db)
-        docs = (
-            db.query(PriceDocument)
-            .filter(PriceDocument.doc_id.in_(doc_ids))
-            .order_by(PriceDocument.uploaded_at.asc(), PriceDocument.filename.asc())
-            .all()
-        )
-        for doc in docs:
-            try:
-                logger.info(f"[Queue Worker] Processing queued document {doc.filename}...")
-                process_document(db, doc.doc_id, normalizer)
-            except Exception as e:  # noqa: BLE001
-                logger.error(f"[Queue Worker] Error processing document {doc.doc_id}: {e}")
+    with _BG_QUEUE_LOCK:
+        from .db import SessionLocal
+        with SessionLocal() as db:
+            normalizer = load_normalizer(db)
+            docs = (
+                db.query(PriceDocument)
+                .filter(PriceDocument.doc_id.in_(doc_ids))
+                .order_by(PriceDocument.uploaded_at.asc(), PriceDocument.filename.asc())
+                .all()
+            )
+            for doc in docs:
+                try:
+                    logger.info(f"[Queue Worker] Processing queued document {doc.filename}...")
+                    process_document(db, doc.doc_id, normalizer)
+                except Exception as e:  # noqa: BLE001
+                    logger.error(f"[Queue Worker] Error processing document {doc.doc_id}: {e}")

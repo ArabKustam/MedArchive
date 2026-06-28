@@ -22,6 +22,7 @@ if DATABASE_URL.startswith("sqlite"):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA busy_timeout=60000")
         cursor.close()
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)

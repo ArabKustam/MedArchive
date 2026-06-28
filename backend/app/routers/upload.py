@@ -1,9 +1,10 @@
-"""POST /upload — эндпоинт загрузки ZIP-архивов или отдельных документов (PDF/DOCX/XLSX/PNG) с фоновой обработкой."""
+"""POST /upload — эндпоинт загрузки одного или нескольких файлов (ZIP/PDF/DOCX/XLSX/PNG) с фоновой обработкой."""
 from __future__ import annotations
 
 import tempfile
 import threading
 from pathlib import Path
+from typing import Optional, List
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -15,42 +16,47 @@ from ..schemas import PriceDocumentOut, UploadResult
 router = APIRouter(prefix="/upload", tags=["upload"])
 
 
-@router.post("", response_model=UploadResult, summary="Загрузить документ или ZIP-архив прайсов")
+@router.post("", response_model=UploadResult, summary="Загрузить один или несколько документов/ZIP-архивов")
 async def upload_archive(
-    file: UploadFile = File(..., description="ZIP или отдельный файл PDF/DOCX/XLSX/PNG"),
+    files: List[UploadFile] = File(None, description="Список файлов для массовой загрузки"),
+    file: Optional[UploadFile] = File(None, description="Одиночный файл"),
     db: Session = Depends(get_db),
 ) -> UploadResult:
     """
-    Принимает файл от пользователя (ZIP-архив или одиночный документ),
-    сохраняет его во временное хранилище, регистрирует документы в базой данных
-    и запускает фоновый поток для парсинга и нормализации.
+    Принимает один или несколько файлов от пользователя (ZIP-архивы или одиночные документы PDF/XLSX/DOCX),
+    сохраняет их во временное хранилище, регистрирует в базе данных
+    и последовательно обрабатывает в фоновом потоке.
     """
-    # Проверка наличия имени файла
-    if not file.filename:
-        raise HTTPException(400, "Имя файла не передано")
+    upload_list: List[UploadFile] = []
+    if files:
+        upload_list.extend(files)
+    if file:
+        upload_list.append(file)
 
-    # Проверка поддерживаемого расширения файла
-    ext = Path(file.filename).suffix.lower().lstrip(".")
-    if ext != "zip" and ext not in VALID_EXTS:
-        raise HTTPException(
-            400, f"Неподдерживаемый формат файла .{ext}. Поддерживаются: ZIP, PDF, XLSX, XLS, DOCX, JPG, PNG."
-        )
+    if not upload_list:
+        raise HTTPException(400, "Файлы для загрузки не переданы")
 
-    # Сохранение входящего файла во временный каталог на диске
-    tmp = Path(tempfile.mkdtemp()) / file.filename
-    tmp.write_bytes(await file.read())
+    all_documents = []
+    for f in upload_list:
+        if not f.filename:
+            continue
+        ext = Path(f.filename).suffix.lower().lstrip(".")
+        if ext != "zip" and ext not in VALID_EXTS:
+            continue
+        tmp = Path(tempfile.mkdtemp()) / f.filename
+        tmp.write_bytes(await f.read())
+        docs = register_upload(db, tmp)
+        all_documents.extend(docs)
 
-    # Регистрация загруженного файла/архива в базе данных и создание записей PriceDocument
-    documents = register_upload(db, tmp)
+    if not all_documents:
+        raise HTTPException(400, "Ни один из переданных файлов не имеет поддерживаемого формата")
 
-    # Запуск фонового демонического потока для обработки созданных документов (парсинг + сопоставление)
-    doc_ids = [d.doc_id for d in documents]
+    # Запуск фонового демонического потока для обработки всех созданных документов
+    doc_ids = [d.doc_id for d in all_documents]
     threading.Thread(target=process_queue_bg, args=(doc_ids,), daemon=True).start()
 
-    # Возврат результата с перечнем созданных документов
     return UploadResult(
-        documents=[PriceDocumentOut.model_validate(d) for d in documents],
-        total_files=len(documents),
+        documents=[PriceDocumentOut.model_validate(d) for d in all_documents],
+        total_files=len(all_documents),
         total_items=0,
     )
-
