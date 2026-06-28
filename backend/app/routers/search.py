@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import Pagination, paginate, pagination_params
-from ..models import Partner, PriceDocument, PriceItem
+from ..models import Partner, PriceDocument, PriceItem, Service
 from ..schemas import Page, PriceItemOut
 
 router = APIRouter(prefix="/search", tags=["search"])
@@ -64,20 +64,27 @@ def search(
 
     page_res = paginate(db, stmt, pg, PriceItemOut)
 
-    # Populate partner_name and filename for UI display
+    # Populate partner_name, filename, and category for UI display
     if page_res.items:
-        p_ids = {item.partner_id for item in page_res.items}
-        d_ids = {item.doc_id for item in page_res.items}
-        
+        p_ids = {item.partner_id for item in page_res.items if item.partner_id}
+        d_ids = {item.doc_id for item in page_res.items if item.doc_id}
+        s_ids = {item.service_id for item in page_res.items if item.service_id}
+
         partners_map = dict(
             db.query(Partner.partner_id, Partner.name).filter(Partner.partner_id.in_(p_ids)).all()
-        )
+        ) if p_ids else {}
         docs_map = dict(
             db.query(PriceDocument.doc_id, PriceDocument.filename).filter(PriceDocument.doc_id.in_(d_ids)).all()
-        )
+        ) if d_ids else {}
+        services_map = dict(
+            db.query(Service.service_id, Service.category).filter(Service.service_id.in_(s_ids)).all()
+        ) if s_ids else {}
+
         for item in page_res.items:
             item.partner_name = partners_map.get(item.partner_id)
             item.filename = docs_map.get(item.doc_id)
+            if item.service_id and item.service_id in services_map:
+                item.category = services_map[item.service_id]
             
     return page_res
 

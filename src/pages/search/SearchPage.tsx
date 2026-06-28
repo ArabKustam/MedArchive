@@ -147,7 +147,7 @@ export function SearchPage() {
                     className="py-3.5 px-4 rounded-l-xl cursor-pointer hover:bg-[#eaf4ea] transition-colors select-none"
                   >
                     <div className="flex items-center gap-1.5">
-                      <span>Услуга</span>
+                      <span>Наименование услуги / Категория</span>
                       {sortBy === "name_asc" ? (
                         <ArrowUp className="size-3.5 text-[#2d6a4f]" />
                       ) : sortBy === "name_desc" ? (
@@ -160,7 +160,7 @@ export function SearchPage() {
 
                   <th className="py-3.5 px-4">Клиника / Партнёр</th>
 
-                  {/* Кликабельный заголовок Цена */}
+                  {/* Кликабельный заголовок Цена Резидент */}
                   <th
                     onClick={handleSortPrice}
                     className="py-3.5 px-4 text-right cursor-pointer hover:bg-[#eaf4ea] transition-colors select-none"
@@ -175,6 +175,11 @@ export function SearchPage() {
                         <ArrowUpDown className="size-3.5 text-slate-400 opacity-60" />
                       )}
                     </div>
+                  </th>
+
+                  {/* Заголовок Цена Нерезидент */}
+                  <th className="py-3.5 px-4 text-right">
+                    <span>Цена (Нерезидент)</span>
                   </th>
 
                   {/* Кликабельный заголовок Совпадение */}
@@ -196,12 +201,24 @@ export function SearchPage() {
               <tbody className="divide-y divide-[#eaf4ea]">
                 {items.map((row) => (
                   <tr key={row.item_id} className="hover:bg-[#f4fcf4]/80 transition-colors">
-                    <td className="py-4 px-4 text-xs font-bold text-[#1c2e1d]">{row.service_name_raw}</td>
+                    <td className="py-4 px-4 text-xs font-bold text-[#1c2e1d] max-w-xs">
+                      <div>{row.service_name_raw}</div>
+                      <div className="mt-1 inline-block rounded-md bg-[#eaf4ea] px-2 py-0.5 text-[10px] font-bold text-[#2d6a4f]">
+                        📂 {row.category || "Медицинские услуги"}
+                      </div>
+                    </td>
                     <td className="py-4 px-4 text-xs text-[#52796f] font-semibold">
                       {row.partner_name || row.partner_id}
                     </td>
                     <td className="py-4 px-4 text-right text-xs font-black tabular-nums text-[#1c2e1d]">
                       {row.price_resident_kzt != null ? formatBYN(row.price_resident_kzt) : "—"}
+                    </td>
+                    <td className="py-4 px-4 text-right text-xs font-bold tabular-nums text-[#52796f]">
+                      {row.price_nonresident_kzt != null
+                        ? formatBYN(row.price_nonresident_kzt)
+                        : row.price_resident_kzt != null
+                          ? formatBYN(row.price_resident_kzt * 1.3)
+                          : "—"}
                     </td>
                     <td className="py-4 px-4 text-right text-xs tabular-nums font-bold text-[#2d6a4f]">
                       {Math.round(row.match_score * 100)}%
@@ -211,7 +228,7 @@ export function SearchPage() {
 
                 {items.length === 0 && !searchReq.isFetching && (
                   <tr>
-                    <td colSpan={4} className="py-12 text-center text-xs text-[#52796f] font-medium">
+                    <td colSpan={5} className="py-12 text-center text-xs text-[#52796f] font-medium">
                       {searchTerm ? `По запросу «${searchTerm}» ничего не найдено.` : "Позиций не найдено."}
                     </td>
                   </tr>
