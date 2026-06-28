@@ -13,6 +13,19 @@ from .routers import documents, meta, partners, search, services, stats, upload,
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
+    # Auto-resume processing any queued or interrupted documents on server startup
+    import threading
+    from .db import SessionLocal
+    from .models import PriceDocument
+    from .pipeline import process_queue_bg
+
+    with SessionLocal() as db:
+        stuck = db.query(PriceDocument.doc_id).filter(
+            PriceDocument.status.in_(["queued", "processing", "llm_processing"])
+        ).all()
+        doc_ids = [d[0] for d in stuck]
+        if doc_ids:
+            threading.Thread(target=process_queue_bg, args=(doc_ids,), daemon=True).start()
     yield
 
 

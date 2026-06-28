@@ -324,17 +324,13 @@ def process_queue_bg(doc_ids: List[str]):
     """Background task worker processing queued documents sequentially one-by-one in natural order."""
     with _BG_QUEUE_LOCK:
         from .db import SessionLocal
-        with SessionLocal() as db:
-            normalizer = load_normalizer(db)
-            docs = (
-                db.query(PriceDocument)
-                .filter(PriceDocument.doc_id.in_(doc_ids))
-                .order_by(PriceDocument.uploaded_at.asc(), PriceDocument.filename.asc())
-                .all()
-            )
-            for doc in docs:
+        for did in doc_ids:
+            with SessionLocal() as db:
                 try:
-                    logger.info(f"[Queue Worker] Processing queued document {doc.filename}...")
-                    process_document(db, doc.doc_id, normalizer)
+                    normalizer = load_normalizer(db)
+                    doc = db.get(PriceDocument, did)
+                    if doc:
+                        logger.info(f"[Queue Worker] Processing queued document {doc.filename}...")
+                        process_document(db, did, normalizer)
                 except Exception as e:  # noqa: BLE001
-                    logger.error(f"[Queue Worker] Error processing document {doc.doc_id}: {e}")
+                    logger.error(f"[Queue Worker] Error processing document {did}: {e}")
