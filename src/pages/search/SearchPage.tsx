@@ -8,6 +8,7 @@ import { AppLayout } from "@/widgets/app-layout";
 import { searchQuery } from "@/shared/api/queries";
 import { formatBYN } from "@/shared/api/mock-data";
 import { Pager } from "@/shared/ui/Pager";
+import { exportToCSV, exportToXLSX } from "@/shared/lib/export-utils";
 import type { PriceItemDTO } from "@/shared/api/types";
 import { ArrowUpDown, ArrowUp, ArrowDown, Download, Search as SearchIcon, RefreshCw } from "lucide-react";
 
@@ -88,7 +89,7 @@ export function SearchPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => alert("Выгрузка результатов поиска в CSV")}
+              onClick={() => exportToCSV(items, "search_results")}
               className="flex items-center gap-1.5 border border-[#d4e4d4] bg-[#f4fcf4] hover:bg-[#eaf4ea] text-xs font-bold text-[#1b4332] px-3.5 py-1.5 rounded-xl transition-all cursor-pointer"
             >
               <Download className="size-3.5 text-[#2d6a4f]" />
@@ -96,7 +97,7 @@ export function SearchPage() {
             </button>
             <button
               type="button"
-              onClick={() => alert("Выгрузка результатов поиска в XLSX")}
+              onClick={() => exportToXLSX(items, "search_results")}
               className="flex items-center gap-1.5 border border-[#d4e4d4] bg-[#f4fcf4] hover:bg-[#eaf4ea] text-xs font-bold text-[#1b4332] px-3.5 py-1.5 rounded-xl transition-all cursor-pointer"
             >
               <Download className="size-3.5 text-[#2d6a4f]" />
