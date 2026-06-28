@@ -22,10 +22,10 @@ export function SearchPage() {
 
   const pageSize = 25;
 
-  // Выполнение поиска
+  // Выполнение поиска (живой поиск с привязкой к введённому значению)
   const searchReq = useQuery({
     ...searchQuery({
-      query: searchTerm || undefined,
+      query: (searchTerm || inputVal).trim() || undefined,
       sort_by: sortBy,
       page,
     }),

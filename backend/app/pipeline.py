@@ -18,6 +18,7 @@ from .normalize import Normalizer, load_normalizer
 from .parsers import ExtractedRow, iter_archive, parse_file
 from .validation import validate_item
 
+logger = logging.getLogger(__name__)
 _BG_QUEUE_LOCK = threading.Lock()
 
 DATE_RE = re.compile(r"(20\d{2})[._-]?(\d{1,2})?[._-]?(\d{1,2})?")

@@ -1,7 +1,8 @@
-"""GET /search — full-text search across price items."""
+"""GET /search — full-text domain-specific contextual search across price items."""
 from __future__ import annotations
 
-from typing import Optional
+import re
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
@@ -13,6 +14,18 @@ from ..models import Partner, PriceDocument, PriceItem, Service
 from ..schemas import Page, PriceItemOut
 
 router = APIRouter(prefix="/search", tags=["search"])
+
+MEDICAL_SYNONYMS_MAP = {
+    "кт": ["компьютерная томография", "компьютерная", "мскт"],
+    "мскт": ["кт", "компьютерная томография", "компьютерная"],
+    "компьютерная": ["кт", "мскт", "компьютерная томография"],
+    "мрт": ["магнитно-резонансная томография", "магнитно резонансная томография", "магнитно-резонансная"],
+    "узи": ["ультразвуковое исследование", "ультразвук", "ультразвуковая"],
+    "экг": ["электрокардиография", "электрокардиограмма"],
+    "фгдс": ["фиброгастродуоденоскопия", "гастроскопия"],
+    "оак": ["общий анализ крови"],
+    "оам": ["общий анализ мочи"],
+}
 
 
 @router.get("", response_model=Page[PriceItemOut], summary="Поиск позиций прайса")
@@ -29,8 +42,20 @@ def search(
     db: Session = Depends(get_db),
 ):
     stmt = select(PriceItem).where(PriceItem.is_active == True)
-    if query:
-        stmt = stmt.where(PriceItem.service_name_raw.ilike(f"%{query}%"))
+    
+    q_clean = query.strip().lower()
+    expanded_terms: List[str] = []
+    if q_clean:
+        synonyms = MEDICAL_SYNONYMS_MAP.get(q_clean, [])
+        expanded_terms = [q_clean] + synonyms
+
+    if expanded_terms:
+        from sqlalchemy import or_
+        conditions = []
+        for t in expanded_terms:
+            conditions.append(PriceItem.service_name_raw.ilike(f"%{t}%"))
+        stmt = stmt.where(or_(*conditions))
+
     if partner_id:
         stmt = stmt.where(PriceItem.partner_id == partner_id)
     if doc_id:
@@ -46,29 +71,69 @@ def search(
     if matched_only:
         stmt = stmt.where(PriceItem.service_id.is_not(None))
 
-    # Sorting logic
-    if sort_by == "price_asc":
-        stmt = stmt.order_by(PriceItem.price_resident_kzt.asc().nullslast())
-    elif sort_by == "price_desc":
-        stmt = stmt.order_by(PriceItem.price_resident_kzt.desc().nullslast())
-    elif sort_by == "name_asc":
-        stmt = stmt.order_by(PriceItem.service_name_raw.asc())
-    elif sort_by == "name_desc":
-        stmt = stmt.order_by(PriceItem.service_name_raw.desc())
-    elif sort_by == "match_score_desc":
-        stmt = stmt.order_by(PriceItem.match_score.desc())
-    elif sort_by == "filename_asc":
-        stmt = stmt.join(PriceDocument, PriceDocument.doc_id == PriceItem.doc_id).order_by(PriceDocument.filename.asc())
-    else:
-        stmt = stmt.order_by(PriceItem.match_score.desc(), PriceItem.service_name_raw)
+    # Fetch all database candidates to apply Word-Boundary Filtering & Custom Relevance Ranking
+    raw_candidates: List[PriceItem] = db.scalars(stmt).all()
 
-    page_res = paginate(db, stmt, pg, PriceItemOut)
+    filtered_items: List[PriceItem] = []
+    if q_clean and len(q_clean) <= 4:
+        # Word-Boundary Matching for short medical acronyms (e.g. КТ, МРТ, УЗИ)
+        pattern_str = r"(?i)\b(" + "|".join([re.escape(t) for t in expanded_terms]) + r")\b"
+        wb_regex = re.compile(pattern_str)
+        for item in raw_candidates:
+            if wb_regex.search(item.service_name_raw):
+                filtered_items.append(item)
+    elif expanded_terms:
+        pattern_str = r"(?i)(" + "|".join([re.escape(t) for t in expanded_terms]) + r")"
+        sub_regex = re.compile(pattern_str)
+        for item in raw_candidates:
+            if sub_regex.search(item.service_name_raw):
+                filtered_items.append(item)
+    else:
+        filtered_items = raw_candidates
+
+    # Custom Relevance Ranking Engine
+    def calc_rank_tuple(item: PriceItem):
+        text = item.service_name_raw.lower()
+        exact_acronym_match = 0
+        if q_clean:
+            # Word boundary match of exact user query
+            if re.search(r"(?i)\b" + re.escape(q_clean) + r"\b", item.service_name_raw):
+                exact_acronym_match = 2
+            elif any(re.search(r"(?i)\b" + re.escape(t) + r"\b", item.service_name_raw) for t in expanded_terms):
+                exact_acronym_match = 1
+
+        if sort_by == "price_asc":
+            return (item.price_resident_kzt if item.price_resident_kzt is not None else float("inf"))
+        elif sort_by == "price_desc":
+            return (-(item.price_resident_kzt or 0))
+        elif sort_by == "name_asc":
+            return item.service_name_raw
+        elif sort_by == "name_desc":
+            return item.service_name_raw
+        elif sort_by == "match_score_desc":
+            return (-(item.match_score or 0))
+        else:
+            # Relevance: Exact acronym match top 1 -> match_score -> name
+            return (-exact_acronym_match, -(item.match_score or 0), item.service_name_raw)
+
+    if sort_by in ("name_desc",):
+        filtered_items.sort(key=calc_rank_tuple, reverse=True)
+    else:
+        filtered_items.sort(key=calc_rank_tuple)
+
+    total = len(filtered_items)
+    start_idx = (pg.page - 1) * pg.page_size
+    end_idx = start_idx + pg.page_size
+    page_items_models = filtered_items[start_idx:end_idx]
+
+    # Convert models to DTOs
+    dto_items = [PriceItemOut.model_validate(m) for m in page_items_models]
 
     # Populate partner_name, filename, and category for UI display
-    if page_res.items:
-        p_ids = {item.partner_id for item in page_res.items if item.partner_id}
-        d_ids = {item.doc_id for item in page_res.items if item.doc_id}
-        s_ids = {item.service_id for item in page_res.items if item.service_id}
+    if dto_items:
+        p_ids = {item.partner_id for item in dto_items if item.partner_id}
+        d_ids = {item.doc_id for item in dto_items if item.doc_id}
+        s_ids = {item.service_id for item in dto_items if item.service_id}
 
         partners_map = dict(
             db.query(Partner.partner_id, Partner.name).filter(Partner.partner_id.in_(p_ids)).all()
@@ -80,11 +145,18 @@ def search(
             db.query(Service.service_id, Service.category).filter(Service.service_id.in_(s_ids)).all()
         ) if s_ids else {}
 
-        for item in page_res.items:
+        for item in dto_items:
             item.partner_name = partners_map.get(item.partner_id)
             item.filename = docs_map.get(item.doc_id)
             if item.service_id and item.service_id in services_map:
                 item.category = services_map[item.service_id]
-            
-    return page_res
+
+    pages_count = (total + pg.page_size - 1) // pg.page_size if pg.page_size > 0 else 1
+    return Page[PriceItemOut](
+        items=dto_items,
+        page=pg.page,
+        page_size=pg.page_size,
+        total=total,
+        pages=pages_count,
+    )
 
