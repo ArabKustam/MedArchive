@@ -24,10 +24,10 @@ pip install -r requirements.txt
 python -m app.seed --catalog ./data/catalog.xlsx
 
 # запуск API
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8765
 ```
 
-OpenAPI/Swagger: http://localhost:8000/docs · ReDoc: http://localhost:8000/redoc
+OpenAPI/Swagger: http://localhost:8765/docs · ReDoc: http://localhost:8765/redoc
 
 ## Структура
 

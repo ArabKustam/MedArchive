@@ -1,25 +1,26 @@
-// Фича «Удаление документа» (FSD: features/document-delete).
-// Самодостаточная кнопка: показывает confirm, обращается к стору документов.
-// Не знает ничего о таблице, в которой отображается — её можно вставить куда угодно.
-
 import { useState } from "react";
-import { documentStore, type PriceDocument } from "@/entities/price-document";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { deleteDocument } from "@/shared/api/queries";
 
 type Props = {
-  /** Документ, который нужно удалить. */
-  document: Pick<PriceDocument, "id" | "filename">;
-  /** Опциональный колбэк после успешного удаления (например, сброс выделения). */
+  document: { id: string; filename: string };
   onDeleted?: (id: string) => void;
 };
 
 export function DeleteDocumentButton({ document, onDeleted }: Props) {
-  // Локальный флаг «ожидание подтверждения» — две стадии вместо системного confirm,
-  // чтобы UI оставался единообразным.
   const [confirming, setConfirming] = useState(false);
+  const queryClient = useQueryClient();
+
+  const deleteMut = useMutation({
+    mutationFn: () => deleteDocument(document.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      onDeleted?.(document.id);
+    },
+  });
 
   function handleDelete() {
-    documentStore.remove(document.id);
-    onDeleted?.(document.id);
+    deleteMut.mutate();
   }
 
   if (confirming) {

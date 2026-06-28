@@ -1,117 +1,148 @@
-// Страница дашборда админ-панели (FSD: pages/admin-dashboard).
-// Метрики берутся из реактивных сторов, чтобы показатели обновлялись
-// сразу после загрузки/удаления документа или подтверждения позиции.
+// Страница «Статистика» (FSD: pages/admin-dashboard).
+// Панель аналитики со светлой зелёной эстетикой и работающей кнопкой очистки базы прайсов.
 
-import { useMemo } from "react";
-import { priceRows, partners } from "@/shared/api/mock-data";
-import { services } from "@/entities/service";
-import { useDocuments } from "@/entities/price-document";
-import { useVerificationQueue } from "@/entities/verification";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { AppLayout } from "@/widgets/app-layout";
+import { adminStatsQuery, resetDatabase } from "@/shared/api/queries";
+import { RefreshCw, Trash2, ShieldCheck, Database, FileText, CheckCircle2, AlertTriangle, Building2 } from "lucide-react";
 
 export function AdminDashboardPage() {
-  const documents = useDocuments();
-  const queue = useVerificationQueue();
+  const queryClient = useQueryClient();
+  const statsQuery = useQuery(adminStatsQuery());
+  const stats = statsQuery.data ?? {};
 
-  // Считаем агрегаты единожды при изменении входных данных.
-  const stats = useMemo(() => {
-    const totalDocs = documents.length;
-    // Группировка документов по статусу.
-    const byStatus = documents.reduce<Record<string, number>>((a, d) => {
-      a[d.status] = (a[d.status] ?? 0) + 1;
-      return a;
-    }, {});
-    const totalItems = priceRows.length;
-    const autoMatched = totalItems - queue.length;
-    const unmatched = queue.length;
-    // % автосопоставленных позиций с точностью до 0.1.
-    const matchRate = totalItems ? Math.round((autoMatched / totalItems) * 1000) / 10 : 0;
-    // Сколько уникальных услуг покрыты хотя бы одной клиникой.
-    const servicesCovered = new Set(priceRows.map((r) => r.service)).size;
-    return {
-      totalDocs,
-      byStatus,
-      totalItems,
-      autoMatched,
-      unmatched,
-      matchRate,
-      partners: partners.length,
-      servicesTotal: services.length,
-      servicesCovered,
-    };
-  }, [documents, queue]);
+  // Рабочая очистка базы прайсов
+  const clearMut = useMutation({
+    mutationFn: () => resetDatabase(),
+    onSuccess: () => {
+      alert("База данных прайсов и документов успешно очищена!");
+      queryClient.invalidateQueries();
+    },
+    onError: (err: any) => {
+      alert(`Ошибка очистки базы: ${err.message || err}`);
+    },
+  });
+
+  function handleClearPrices() {
+    if (confirm("Вы уверены, что хотите полностью очистить все загруженные прайсы и документы? Базовый справочник сохранится.")) {
+      clearMut.mutate();
+    }
+  }
+
+  const partnersCount = Number(stats.partners_count ?? 0);
+  const totalItems = Number(stats.total_price_items ?? 0);
+  const matchRate = Number(stats.match_rate ?? 0);
+  const servicesTotal = Number(stats.services_total ?? 0);
+  const totalDocs = Number(stats.total_documents ?? 0);
+  const unmatched = Number(stats.unmatched ?? 0);
 
   return (
-    <div className="space-y-8">
-      {/* Сетка с ключевыми метриками. */}
-      <section className="grid grid-cols-4 gap-4">
-        <Metric label="Документов" value={stats.totalDocs} />
-        <Metric label="Позиций прайса" value={stats.totalItems.toLocaleString("ru-RU")} />
-        <Metric label="Автосопоставлено" value={`${stats.matchRate}%`} tone="emerald" />
-        <Metric label="В очереди ручной верификации" value={stats.unmatched} tone="amber" />
-        <Metric label="Партнёров" value={stats.partners} />
-        <Metric label="Услуг в справочнике" value={stats.servicesTotal} />
-        <Metric label="Услуг с покрытием" value={stats.servicesCovered} />
-        <Metric label="Готовых документов" value={stats.byStatus.done ?? 0} tone="emerald" />
-      </section>
+    <AppLayout>
+      {/* Шапка страницы */}
+      <header className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-[#1c2e1d]">Статистика и Мониторинг</h1>
+          <p className="mt-1 text-sm text-[#52796f] font-medium">Общие метрики состояния архива медицинских услуг.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => statsQuery.refetch()}
+          className="flex items-center gap-2 border border-[#d4e4d4] bg-[#f4fcf4] hover:bg-[#eaf4ea] text-xs font-bold text-[#1b4332] px-4 py-2.5 rounded-xl transition-all cursor-pointer"
+        >
+          <RefreshCw className="size-3.5 text-[#2d6a4f]" />
+          <span>Обновить метрики</span>
+        </button>
+      </header>
 
-      {/* Прогресс-бары по статусам документов. */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Статусы документов
-        </h2>
-        <div className="rounded-xl bg-panel p-5 ring-1 ring-border">
-          <div className="space-y-3">
-            {(["queued", "processing", "done", "error"] as const).map((s) => {
-              const v = stats.byStatus[s] ?? 0;
-              const pct = stats.totalDocs ? (v / stats.totalDocs) * 100 : 0;
-              // Цвет полоски зависит от типа статуса.
-              const color =
-                s === "done"
-                  ? "bg-emerald-500"
-                  : s === "processing"
-                    ? "bg-amber-500"
-                    : s === "error"
-                      ? "bg-rose-500"
-                      : "bg-zinc-400";
-              return (
-                <div key={s}>
-                  <div className="mb-1 flex justify-between text-xs">
-                    <span className="capitalize text-muted-foreground">{s}</span>
-                    <span className="tabular-nums">{v}</span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div className={"h-full " + color} style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
+      {/* Главная карточка */}
+      <div className="bg-white rounded-3xl border border-[#d4e4d4] p-7 shadow-xs space-y-8">
+        <div className="flex items-center justify-between border-b border-[#eaf4ea] pb-5">
+          <div>
+            <h2 className="text-lg font-bold text-[#1c2e1d]">Обзор показателей</h2>
+            <p className="text-xs text-[#52796f] mt-0.5 font-medium">Текущий объем данных в базе системных архивов.</p>
           </div>
         </div>
-      </section>
-    </div>
-  );
-}
 
-/** Карточка одной метрики на дашборде. */
-function Metric({
-  label,
-  value,
-  tone = "default",
-}: {
-  label: string;
-  value: number | string;
-  tone?: "default" | "emerald" | "amber";
-}) {
-  const cls =
-    tone === "emerald"
-      ? "text-emerald-600"
-      : tone === "amber"
-        ? "text-amber-600"
-        : "text-foreground";
-  return (
-    <div className="rounded-xl bg-panel p-5 ring-1 ring-border">
-      <div className={"text-2xl font-semibold tabular-nums " + cls}>{value}</div>
-      <div className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-    </div>
+        {/* Сетка метрик 3x2 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* 1. Партнёры */}
+          <div className="bg-[#f4fcf4] rounded-2xl border border-[#d4e4d4] p-6 space-y-2">
+            <div className="flex items-center justify-between text-[#52796f]">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider">ПАРТНЁРЫ</span>
+              <Building2 className="size-4 text-[#2d6a4f]" />
+            </div>
+            <div className="text-3xl font-black text-[#1c2e1d]">{partnersCount}</div>
+            <div className="text-[11px] text-[#52796f]">Интегрированных клиник</div>
+          </div>
+
+          {/* 2. Позиции */}
+          <div className="bg-[#f4fcf4] rounded-2xl border border-[#d4e4d4] p-6 space-y-2">
+            <div className="flex items-center justify-between text-[#52796f]">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider">ПОЗИЦИИ</span>
+              <Database className="size-4 text-[#2d6a4f]" />
+            </div>
+            <div className="text-3xl font-black text-[#1c2e1d]">{totalItems.toLocaleString("ru-RU")}</div>
+            <div className="text-[11px] text-[#52796f]">Извлеченных тарифов</div>
+          </div>
+
+          {/* 3. Совпадение */}
+          <div className="bg-[#f4fcf4] rounded-2xl border border-[#d4e4d4] p-6 space-y-2">
+            <div className="flex items-center justify-between text-[#52796f]">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider">СОВПАДЕНИЕ</span>
+              <CheckCircle2 className="size-4 text-[#2d6a4f]" />
+            </div>
+            <div className="text-3xl font-black text-[#1c2e1d]">{matchRate}%</div>
+            <div className="text-[11px] text-[#52796f]">Точность автосопоставления</div>
+          </div>
+
+          {/* 4. Справочник */}
+          <div className="bg-[#f4fcf4] rounded-2xl border border-[#d4e4d4] p-6 space-y-2">
+            <div className="flex items-center justify-between text-[#52796f]">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider">СПРАВОЧНИК</span>
+              <ShieldCheck className="size-4 text-[#2d6a4f]" />
+            </div>
+            <div className="text-3xl font-black text-[#1c2e1d]">{servicesTotal}</div>
+            <div className="text-[11px] text-[#52796f]">Эталонных процедур</div>
+          </div>
+
+          {/* 5. Документы */}
+          <div className="bg-[#f4fcf4] rounded-2xl border border-[#d4e4d4] p-6 space-y-2">
+            <div className="flex items-center justify-between text-[#52796f]">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider">ДОКУМЕНТЫ</span>
+              <FileText className="size-4 text-[#2d6a4f]" />
+            </div>
+            <div className="text-3xl font-black text-[#1c2e1d]">{totalDocs}</div>
+            <div className="text-[11px] text-[#52796f]">Загруженных файлов</div>
+          </div>
+
+          {/* 6. Проверка */}
+          <div className="bg-[#f4fcf4] rounded-2xl border border-[#d4e4d4] p-6 space-y-2">
+            <div className="flex items-center justify-between text-[#52796f]">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider">ПРОВЕРКА</span>
+              <AlertTriangle className="size-4 text-amber-600" />
+            </div>
+            <div className="text-3xl font-black text-[#1c2e1d]">{unmatched}</div>
+            <div className="text-[11px] text-[#52796f]">Строк в очереди ревью</div>
+          </div>
+        </div>
+
+        {/* Футер карточки с административной очисткой */}
+        <div className="pt-6 flex flex-wrap items-center justify-between gap-4 border-t border-[#eaf4ea]">
+          <div className="text-xs text-[#52796f]">
+            <span className="font-bold text-[#1c2e1d] block">Административное действие:</span>
+            Полностью очистить загруженные прайсы и документы. Базовый справочник сохранится.
+          </div>
+          <button
+            type="button"
+            onClick={handleClearPrices}
+            disabled={clearMut.isPending}
+            className="flex items-center gap-2 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold px-5 py-2.5 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <Trash2 className="size-4 text-rose-600" />
+            <span>{clearMut.isPending ? "Очистка базы..." : "Очистить прайсы"}</span>
+          </button>
+        </div>
+      </div>
+    </AppLayout>
   );
 }

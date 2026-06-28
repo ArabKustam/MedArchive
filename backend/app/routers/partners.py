@@ -23,7 +23,8 @@ def list_partners(
     pg: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
 ):
-    stmt = select(Partner)
+    from ..models import PriceDocument
+    stmt = select(Partner).where(Partner.partner_id.in_(select(PriceDocument.partner_id)))
     if query:
         stmt = stmt.where(Partner.name.ilike(f"%{query}%"))
     if city:
@@ -56,7 +57,7 @@ def partner_prices(
 ):
     if not db.get(Partner, partner_id):
         raise HTTPException(404, "Partner not found")
-    stmt = select(PriceItem).where(PriceItem.partner_id == partner_id)
+    stmt = select(PriceItem).where(PriceItem.partner_id == partner_id, PriceItem.is_active == True)
     if query:
         stmt = stmt.where(PriceItem.service_name_raw.ilike(f"%{query}%"))
     if match_status:

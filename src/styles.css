@@ -37,39 +37,44 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  /* Technical lab dashboard palette */
-  --surface: oklch(0.965 0 0);         /* page bg ~ #f4f4f5 zinc-100 */
-  --panel: oklch(0.985 0 0);           /* card bg ~ zinc-50 */
-  --background: oklch(0.965 0 0);
-  --foreground: oklch(0.21 0.006 285.9);   /* zinc-900 */
-  --card: oklch(0.985 0 0);
-  --card-foreground: oklch(0.21 0.006 285.9);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.006 285.9);
+  --radius: 0.875rem;
+  /* Fresh Light Green & Soft Mint Palette (NO dark colors, NO blue tones) */
+  --surface: #f3f8f3;                  /* Light mint/sage page background */
+  --panel: #ffffff;                    /* Pure white cards */
+  --background: #f3f8f3;
+  --foreground: #1c2e1d;               /* Deep natural dark green-gray text, no harsh blacks */
+  --card: #ffffff;
+  --card-foreground: #1c2e1d;
+  --popover: #ffffff;
+  --popover-foreground: #1c2e1d;
 
-  --brand: oklch(0.5 0.085 178);            /* teal-700 ~ #0f766e */
-  --brand-light: oklch(0.69 0.13 178);      /* teal-500 ~ #14b8a6 */
-  --brand-foreground: oklch(1 0 0);
+  /* Pleasant fresh green primary brand color */
+  --brand: #2d6a4f;
+  --brand-light: #40916c;
+  --brand-foreground: #ffffff;
 
   --primary: var(--brand);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.96 0.005 285);
-  --secondary-foreground: oklch(0.21 0.006 285.9);
-  --muted: oklch(0.96 0.005 285);
-  --muted-foreground: oklch(0.55 0.012 285.9); /* zinc-500 */
-  --accent: oklch(0.94 0.02 178);
-  --accent-foreground: oklch(0.32 0.06 178);
-  --destructive: oklch(0.6 0.22 27);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0 0 0 / 5%);
-  --input: oklch(0 0 0 / 8%);
+  --primary-foreground: #ffffff;
+  --secondary: #d8ebd8;
+  --secondary-foreground: #1b4332;
+  --muted: #eaf4ea;
+  --muted-foreground: #52796f;
+  --accent: #d8ebd8;
+  --accent-foreground: #1b4332;
+  --destructive: #e53935;
+  --destructive-foreground: #ffffff;
+  --border: #d4e4d4;
+  --input: #c2dcc2;
   --ring: var(--brand);
 }
 
 @layer base {
   * {
     border-color: var(--color-border);
+  }
+
+  html {
+    font-size: 100%;
   }
 
   html,

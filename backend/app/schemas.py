@@ -37,11 +37,20 @@ class ServiceOut(BaseModel):
     is_active: bool = True
 
 
+class DocumentMetaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    doc_id: str
+    filename: str
+    partner_id: str
+
+
 class PriceItemOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     item_id: str
     doc_id: str
+    filename: Optional[str] = None
     partner_id: str
+    partner_name: Optional[str] = None
     service_id: Optional[str] = None
     service_name_raw: str
     service_code_source: Optional[str] = None
@@ -50,6 +59,7 @@ class PriceItemOut(BaseModel):
     currency_original: str = "KZT"
     match_score: float = 0.0
     match_status: str = "unmatched"
+    is_active: bool = True
 
 
 class PriceDocumentOut(BaseModel):
@@ -64,6 +74,8 @@ class PriceDocumentOut(BaseModel):
     items_total: int
     items_matched: int
     error_message: Optional[str] = None
+    extraction_method: Optional[str] = None
+    raw_llm_json: Optional[str] = None
 
 
 class ServicePartnerPrice(BaseModel):
@@ -91,13 +103,21 @@ class VerificationItemOut(BaseModel):
     price_resident_kzt: Optional[float] = None
     price_nonresident_kzt: Optional[float] = None
     candidates: List[VerificationCandidate] = Field(default_factory=list)
+    reason: Optional[str] = "low_match"
+    reason_label: Optional[str] = "Низкое совпадение со справочником"
+    page_number: Optional[int] = 1
+    raw_context_snippet: Optional[str] = None
+    match_score: Optional[float] = 0.0
 
 
 class VerificationDecision(BaseModel):
     service_id: Optional[str] = None  # accept => set; reject => null
-    action: str  # "accept" | "reject" | "create_new"
+    action: str  # "accept" | "reject" | "create_new" | "update_and_accept"
     new_service_name: Optional[str] = None
     new_category: Optional[str] = None
+    updated_price_resident: Optional[float] = None
+    updated_price_nonresident: Optional[float] = None
+    updated_service_name: Optional[str] = None
 
 
 class UploadResult(BaseModel):

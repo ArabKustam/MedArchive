@@ -1,104 +1,103 @@
 // Главный лейаут приложения (FSD: widgets/app-layout).
-// Содержит закреплённую боковую панель навигации и контейнер для контента.
-// Бейдж количества несопоставленных позиций берётся из реактивного стора,
-// чтобы автоматически уменьшаться по мере подтверждения позиций оператором.
+// Чистый светлый зеленый интерфейс без блока аккаунта и без нижней подсказки в боковой панели.
+
 import { Link, useRouterState } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { useVerificationQueue } from "@/entities/verification";
+import {
+  FileCode2,
+  Building2,
+  Search,
+  CheckCircle2,
+  Activity,
+  Database,
+  Sparkles,
+} from "lucide-react";
 
 type NavItem = {
   to: string;
   label: string;
-  badge?: number;
+  icon: React.ComponentType<{ className?: string }>;
 };
 
 const mainNav: NavItem[] = [
-  { to: "/", label: "Поиск услуг" },
-  { to: "/services", label: "Каталог услуг" },
-  { to: "/partners", label: "Клиники-партнёры" },
+  { to: "/admin/upload", label: "Прайсы", icon: FileCode2 },
+  { to: "/partners", label: "Партнёры", icon: Building2 },
+  { to: "/", label: "Поиск", icon: Search },
+  { to: "/admin/verify", label: "Ревью", icon: CheckCircle2 },
+  { to: "/admin", label: "Статистика", icon: Activity },
+  { to: "/services", label: "Справочник", icon: Database },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  // Активная ссылка: точное совпадение для «/» и префиксное — для остального.
-  const isActive = (to: string) =>
-    to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(to + "/");
 
-  const adminActive = pathname.startsWith("/admin");
-  const queue = useVerificationQueue();
+  const isActive = (to: string) => {
+    if (to === "/") {
+      return pathname === "/";
+    }
+    if (to === "/admin") {
+      return pathname === "/admin" || pathname === "/admin/";
+    }
+    return pathname === to || pathname.startsWith(to + "/");
+  };
 
   return (
-    <div className="min-h-screen bg-surface text-foreground">
-      <aside className="fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-panel">
+    <div className="min-h-screen bg-[#f3f8f3] text-[#1c2e1d] font-sans flex text-base">
+      {/* Светлая боковая панель (w-72) */}
+      <aside className="fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r-2 border-[#d4e4d4] bg-[#eaf4ea]">
         <div className="p-6">
-          <Link to="/" className="mb-8 flex items-center gap-2">
-            <div className="grid size-7 place-items-center rounded-md bg-brand">
-              <div className="size-2 rounded-full bg-brand-foreground" />
+          {/* Бренд / Логотип */}
+          <Link to="/admin/upload" className="mb-8 block group">
+            <div className="flex items-center gap-3">
+              <div className="grid size-11 place-items-center rounded-2xl bg-[#2d6a4f] text-white shadow-sm">
+                <Sparkles className="size-6" />
+              </div>
+              <div>
+                <div className="text-xl font-black tracking-tight text-[#1c2e1d] leading-none group-hover:text-[#2d6a4f] transition-colors">
+                  Price Parser
+                </div>
+                <div className="mt-1.5 text-[10px] uppercase font-bold tracking-widest text-[#52796f]">
+                  MEDICAL ADMINISTRATION
+                </div>
+              </div>
             </div>
-            <span className="text-lg font-semibold tracking-tight">MedArchive</span>
           </Link>
 
-          <nav className="space-y-1">
-            {mainNav.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors " +
-                  (isActive(item.to)
-                    ? "bg-brand/8 text-brand"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground")
-                }
-              >
-                <span
+          {/* Пункты навигационного меню */}
+          <nav className="space-y-1.5">
+            {mainNav.map((item) => {
+              const active = isActive(item.to);
+              const IconComponent = item.icon;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
                   className={
-                    "size-2 rounded-sm " + (isActive(item.to) ? "bg-brand" : "bg-zinc-300")
+                    "flex items-center gap-3.5 rounded-xl px-4 py-3 text-sm transition-all " +
+                    (active
+                      ? "bg-[#d8ebd8] text-[#1b4332] font-black shadow-xs border-l-4 border-[#2d6a4f]"
+                      : "text-[#52796f] hover:bg-[#d8ebd8]/60 hover:text-[#1c2e1d] font-bold")
                   }
-                />
-                {item.label}
-              </Link>
-            ))}
-
-            <div className="px-3 pt-5 pb-2">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
-                Администрирование
-              </span>
-            </div>
-
-            <Link
-              to="/admin"
-              className={
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors " +
-                (adminActive
-                  ? "bg-brand/8 text-brand"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground")
-              }
-            >
-              <span
-                className={"size-2 rounded-sm " + (adminActive ? "bg-brand" : "bg-zinc-300")}
-              />
-              Верификация
-              <span className="ml-auto rounded-full bg-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-700">
-                {queue.length}
-              </span>
-            </Link>
+                >
+                  <IconComponent
+                    className={
+                      "size-5 transition-transform flex-shrink-0 " +
+                      (active ? "text-[#2d6a4f] scale-110" : "text-[#52796f]")
+                    }
+                  />
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              );
+            })}
           </nav>
-        </div>
-
-        <div className="mt-auto border-t border-border p-6">
-          <div className="flex items-center gap-3">
-            <div className="grid size-9 place-items-center rounded-full bg-brand/10 text-sm font-semibold text-brand ring-1 ring-border">
-              АО
-            </div>
-            <div className="flex flex-col leading-tight">
-              <span className="text-xs font-medium">А. Оператор</span>
-              <span className="text-[10px] text-muted-foreground">Администратор</span>
-            </div>
-          </div>
         </div>
       </aside>
 
-      <main className="ml-64 p-8">{children}</main>
+      {/* Основная область контента (ml-72) */}
+      <div className="flex-1 ml-72 flex flex-col min-h-screen">
+        {/* Главный контент */}
+        <main className="px-8 pt-8 pb-12 flex-1">{children}</main>
+      </div>
     </div>
   );
 }

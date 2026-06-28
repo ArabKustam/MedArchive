@@ -1,4 +1,4 @@
-"""GET /admin/stats — dashboard metrics from Phase 8 of the spec."""
+"""GET /admin/stats & POST /admin/reset — dashboard metrics and clear database endpoints."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
@@ -6,7 +6,7 @@ from sqlalchemy import distinct, func
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Partner, PriceDocument, PriceItem, Service
+from ..models import Partner, PriceDocument, PriceHistory, PriceItem, Service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -48,7 +48,7 @@ def admin_stats(db: Session = Depends(get_db)) -> dict:
         .scalar()
         or 0
     )
-    partners_count = db.query(func.count(Partner.partner_id)).scalar() or 0
+    partners_count = db.query(func.count(distinct(PriceDocument.partner_id))).scalar() or 0
     services_total = db.query(func.count(Service.service_id)).scalar() or 0
 
     match_rate = round(auto_matched / total_items * 100, 1) if total_items else 0.0
@@ -65,3 +65,14 @@ def admin_stats(db: Session = Depends(get_db)) -> dict:
         "services_total": services_total,
         "services_covered": services_covered,
     }
+
+
+@router.post("/reset")
+def reset_database(db: Session = Depends(get_db)) -> dict:
+    """Clear all uploaded documents, price items, price histories, and partners."""
+    db.query(PriceHistory).delete(synchronize_session=False)
+    db.query(PriceItem).delete(synchronize_session=False)
+    db.query(PriceDocument).delete(synchronize_session=False)
+    db.query(Partner).delete(synchronize_session=False)
+    db.commit()
+    return {"message": "База данных успешно очищена"}

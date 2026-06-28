@@ -1,21 +1,13 @@
-// Лейаут-роут «/admin». Подключает виджет вкладок и Outlet для вложенных страниц.
+// Лейаут-роут «/admin». Пробрасывает Outlet для вложенных страниц администратора.
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { AppLayout } from "@/widgets/app-layout";
-import { AdminTabs } from "@/widgets/admin-tabs/ui/AdminTabs";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
-      { title: "Админ-панель · MedArchive" },
+      { title: "Админ-панель · Price Parser" },
       {
         name: "description",
-        content:
-          "Загрузка ZIP-архивов прайс-листов, статус обработки документов, очередь верификации и метрики качества нормализации.",
-      },
-      { property: "og:title", content: "Админ-панель · MedArchive" },
-      {
-        property: "og:description",
-        content: "Загрузка прайсов, верификация и дашборд метрик MedArchive.",
+        content: "Обработка прайс-листов медицинских клиник, верификация и статистика.",
       },
     ],
   }),
@@ -23,11 +15,5 @@ export const Route = createFileRoute("/admin")({
 });
 
 function AdminLayout() {
-  return (
-    <AppLayout>
-      <AdminTabs />
-      {/* Сюда монтируются /admin, /admin/upload, /admin/documents, /admin/verify. */}
-      <Outlet />
-    </AppLayout>
-  );
+  return <Outlet />;
 }

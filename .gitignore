@@ -30,3 +30,27 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+backend/.venv/
+*.env
+
+# Databases & Storage
+*.db
+*.db-shm
+*.db-wal
+storage/
+backend/storage/
+temp_test/
+
+# Keys & Secrets
+*.json
+!package.json
+!package-lock.json
+!components.json
+!tsconfig.json
+!backend/app/schemas.json

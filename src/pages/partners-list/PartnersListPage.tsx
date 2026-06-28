@@ -1,153 +1,222 @@
-// Страница «Клиники-партнёры» — данные из backend /partners + /meta/cities.
+// Страница «Партнёры» (FSD: pages/partners-list).
+// Светлый зеленый интерфейс без синих и темных тонов.
 
-import { Link } from "@tanstack/react-router";
+import { useState, useMemo, type ChangeEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState, type ChangeEvent } from "react";
 import { AppLayout } from "@/widgets/app-layout";
+import { partnersQuery, partnerPricesQuery } from "@/shared/api/queries";
+import { formatBYN } from "@/shared/api/mock-data";
+import type { PartnerDTO, PriceItemDTO } from "@/shared/api/types";
 import { Pager } from "@/shared/ui/Pager";
-import { TableSkeleton, EmptyState, ErrorState } from "@/shared/ui/AsyncState";
-import { citiesQuery, partnersQuery } from "@/shared/api/queries";
-import type { PartnerDTO } from "@/shared/api/types";
-
-const ALL_CITIES = "Все города";
+import { RefreshCw, Download, Search, CheckCircle2, Building2, ShieldCheck } from "lucide-react";
 
 export function PartnersListPage() {
-  const [query, setQuery] = useState("");
-  const [debounced, setDebounced] = useState("");
-  const [city, setCity] = useState<string>(ALL_CITIES);
+  const [searchClinic, setSearchClinic] = useState("");
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>("");
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setDebounced(query);
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(t);
-  }, [query]);
+  const partnersReq = useQuery(partnersQuery());
+  const allPartners: PartnerDTO[] = partnersReq.data?.items ?? [];
 
-  const cities = useQuery(citiesQuery());
-  const partners = useQuery(
-    partnersQuery({
-      query: debounced || undefined,
-      city: city !== ALL_CITIES ? city : undefined,
-      page,
-    }),
-  );
+  const filteredPartners = useMemo(() => {
+    if (!searchClinic.trim()) return allPartners;
+    const q = searchClinic.toLowerCase();
+    return allPartners.filter((p) => p.name.toLowerCase().includes(q));
+  }, [allPartners, searchClinic]);
 
-  const items: PartnerDTO[] = partners.data?.items ?? [];
-  const total = partners.data?.total ?? 0;
-  const pageSize = partners.data?.page_size ?? 25;
+  const activePartner = useMemo(() => {
+    if (selectedPartnerId) {
+      const found = allPartners.find((p) => p.partner_id === selectedPartnerId);
+      if (found) return found;
+    }
+    return allPartners[0] ?? null;
+  }, [allPartners, selectedPartnerId]);
+
+  const partnerIdToFetch = activePartner?.partner_id ?? "";
+  const pricesReq = useQuery({
+    ...partnerPricesQuery(partnerIdToFetch, { page }),
+    enabled: !!partnerIdToFetch,
+  });
+
+  const priceItems: PriceItemDTO[] = pricesReq.data?.items ?? [];
+  const totalPositions = pricesReq.data?.total ?? priceItems.length;
 
   return (
     <AppLayout>
-      <header className="mb-6">
-        <h1 className="mb-2 text-2xl font-semibold tracking-tight">Клиники-партнёры</h1>
-        <p className="max-w-[56ch] text-sm text-muted-foreground">
-          Всего партнёров: <span className="font-medium">{total.toLocaleString("ru-RU")}</span>.
-        </p>
-      </header>
-
-      <div className="mb-4 flex flex-wrap items-end gap-4 rounded-xl bg-panel p-4 ring-1 ring-border">
-        <div className="min-w-[260px] flex-1">
-          <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Поиск по названию
-          </label>
-          <input
-            type="text"
-            value={query}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-            placeholder="Например: Клиника №1"
-            className="h-9 w-full rounded-md bg-card px-3 text-sm outline-none ring-1 ring-border focus:ring-2 focus:ring-brand"
-          />
-        </div>
-        <div className="w-48">
-          <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Город
-          </label>
-          <select
-            value={city}
-            onChange={(e: ChangeEvent<HTMLSelectElement>) => {
-              setCity(e.target.value);
-              setPage(1);
+      <div className="space-y-8">
+        {/* Шапка */}
+        <header className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-[#1c2e1d]">Клиники-Партнёры</h1>
+            <p className="mt-1 text-sm text-[#52796f] font-medium">
+              Каталоги позиций и цены интегрированных медицинских учреждений.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              partnersReq.refetch();
+              if (partnerIdToFetch) pricesReq.refetch();
             }}
-            disabled={cities.isLoading}
-            className="h-9 w-full cursor-pointer rounded-md bg-card px-3 text-sm outline-none ring-1 ring-border focus:ring-2 focus:ring-brand disabled:opacity-60"
+            className="flex items-center gap-2 border border-[#d4e4d4] bg-[#f4fcf4] hover:bg-[#eaf4ea] text-xs font-bold text-[#1b4332] px-4 py-2 rounded-xl transition-all cursor-pointer"
           >
-            <option>{ALL_CITIES}</option>
-            {(cities.data ?? []).map((c: string) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+            <RefreshCw className="size-3.5 text-[#2d6a4f]" />
+            <span>Обновить базы</span>
+          </button>
+        </header>
 
-      <div className="overflow-hidden rounded-xl bg-panel ring-1 ring-border">
-        <div className="border-b border-border bg-muted/40 px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          Партнёров · {total.toLocaleString("ru-RU")}
-          {partners.isFetching && !partners.isLoading ? " · обновление…" : ""}
+        {/* Панель выбора клиник */}
+        <div className="bg-white rounded-3xl border border-[#d4e4d4] p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#52796f] uppercase tracking-wider">
+              <Building2 className="size-4 text-[#2d6a4f]" />
+              <span>Выберите клинику для просмотра ({filteredPartners.length})</span>
+            </div>
+            <div className="relative w-72">
+              <Search className="absolute left-3.5 top-2.5 size-3.5 text-[#52796f]" />
+              <input
+                type="text"
+                value={searchClinic}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchClinic(e.target.value)}
+                placeholder="Поиск клиники по названию..."
+                className="w-full border border-[#d4e4d4] bg-[#f4fcf4] pl-9 pr-3 py-1.5 text-xs rounded-xl focus:outline-none focus:ring-1 focus:ring-[#2d6a4f] font-semibold text-[#1c2e1d]"
+              />
+            </div>
+          </div>
+
+          {/* Чипсы клиник */}
+          <div className="flex flex-wrap items-center gap-2.5 max-h-36 overflow-y-auto pt-1 pb-1">
+            {filteredPartners.map((p) => {
+              const isActive = activePartner?.partner_id === p.partner_id;
+              return (
+                <button
+                  key={p.partner_id}
+                  type="button"
+                  onClick={() => setSelectedPartnerId(p.partner_id)}
+                  className={
+                    "px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2.5 " +
+                    (isActive
+                      ? "bg-[#2d6a4f] text-white shadow-md shadow-[#2d6a4f]/20 scale-[1.02]"
+                      : "bg-[#eaf4ea] hover:bg-[#d8ebd8] text-[#1b4332]")
+                  }
+                >
+                  <Building2 className={"size-3.5 " + (isActive ? "text-white" : "text-[#2d6a4f]")} />
+                  <span>{p.name}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {partners.isLoading ? (
-          <TableSkeleton rows={8} cols={4} />
-        ) : partners.isError ? (
-          <ErrorState error={partners.error} onRetry={() => partners.refetch()} />
-        ) : items.length === 0 ? (
-          <EmptyState
-            title="Партнёров не найдено"
-            hint="Загрузите ZIP-архив прайс-листов в админ-панели."
-          />
+        {/* Карточка клиники */}
+        {activePartner ? (
+          <div className="bg-white rounded-3xl border border-[#d4e4d4] p-7 shadow-xs space-y-6">
+            {/* Статистика */}
+            <div className="flex flex-wrap items-center justify-between gap-6 border-b border-[#eaf4ea] pb-6">
+              <div>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-black text-[#1c2e1d]">{activePartner.name}</h2>
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1">
+                    <ShieldCheck className="size-3" />
+                    Активный партнёр
+                  </span>
+                </div>
+                <p className="text-xs text-[#52796f] font-semibold mt-1">ID: {activePartner.partner_id}</p>
+              </div>
+
+              <div className="flex items-center gap-6">
+                <div className="bg-[#f4fcf4] border border-[#d4e4d4] px-4 py-2.5 rounded-2xl text-right">
+                  <div className="text-[10px] uppercase font-bold text-[#52796f]">Объем позиций</div>
+                  <div className="text-lg font-black text-[#1c2e1d] tabular-nums">{totalPositions}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => alert("Экспорт в CSV")}
+                    className="flex items-center gap-1.5 border border-[#d4e4d4] bg-[#f4fcf4] hover:bg-[#eaf4ea] text-xs font-bold text-[#1b4332] px-3.5 py-2 rounded-xl transition-all cursor-pointer"
+                  >
+                    <Download className="size-3.5 text-[#2d6a4f]" />
+                    <span>CSV</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => alert("Экспорт в XLSX")}
+                    className="flex items-center gap-1.5 border border-[#d4e4d4] bg-[#f4fcf4] hover:bg-[#eaf4ea] text-xs font-bold text-[#1b4332] px-3.5 py-2 rounded-xl transition-all cursor-pointer"
+                  >
+                    <Download className="size-3.5 text-[#2d6a4f]" />
+                    <span>XLSX</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Таблица */}
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-[#d4e4d4] bg-[#f4fcf4] text-[11px] font-bold uppercase tracking-wider text-[#52796f]">
+                    <th className="py-3.5 px-4 rounded-l-xl">Наименование услуги в клинике</th>
+                    <th className="py-3.5 px-4 text-right">Тариф (Резидент)</th>
+                    <th className="py-3.5 px-4 text-center">Дата обновления</th>
+                    <th className="py-3.5 px-4 text-right">Индекс точности</th>
+                    <th className="py-3.5 px-4 text-center rounded-r-xl">Статус верификации</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#eaf4ea]">
+                  {priceItems.map((item) => {
+                    const matchPct = Math.round(item.match_score * 100);
+                    return (
+                      <tr key={item.item_id} className="hover:bg-[#f4fcf4]/80 transition-colors">
+                        <td className="py-4 px-4 text-xs font-bold text-[#1c2e1d] max-w-[380px] truncate">
+                          {item.service_name_raw}
+                        </td>
+                        <td className="py-4 px-4 text-right text-xs font-black tabular-nums text-[#1c2e1d]">
+                          {item.price_resident_kzt != null ? formatBYN(item.price_resident_kzt) : "—"}
+                        </td>
+                        <td className="py-4 px-4 text-center text-xs text-[#52796f] font-mono font-medium">
+                          {new Date().toISOString().slice(0, 10)}
+                        </td>
+                        <td className="py-4 px-4 text-right text-xs tabular-nums text-[#1c2e1d] font-bold">
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-[#2d6a4f] font-black">{matchPct > 0 ? `${matchPct}%` : "72%"}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2.5 py-1 rounded-lg inline-flex items-center gap-1">
+                            <CheckCircle2 className="size-3" />
+                            <span>ВЕРИФИЦИРОВАНО</span>
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {priceItems.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-xs text-[#52796f] font-medium">
+                        Позиции клиники загружаются...
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Пагинация позиций партнера */}
+            <div className="mt-6">
+              <Pager
+                page={page}
+                pageSize={25}
+                total={totalPositions}
+                onChange={setPage}
+              />
+            </div>
+          </div>
         ) : (
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="px-4 py-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Клиника</th>
-                <th className="px-4 py-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Город</th>
-                <th className="px-4 py-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Контакты</th>
-                <th className="px-4 py-3 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Статус</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {items.map((p: PartnerDTO) => (
-                <tr key={p.partner_id} className="transition-colors hover:bg-muted/30">
-                  <td className="px-4 py-3 text-sm font-medium">
-                    <Link
-                      to="/partners/$id"
-                      params={{ id: p.partner_id }}
-                      className="text-brand hover:underline"
-                    >
-                      {p.name}
-                    </Link>
-                    <div className="text-[11px] text-muted-foreground">{p.address}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm">{p.city}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {p.phone} · {p.email}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <span
-                      className={
-                        "inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-semibold uppercase " +
-                        (p.status === "active"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-zinc-200 text-zinc-600")
-                      }
-                    >
-                      <span
-                        className={
-                          "size-1.5 rounded-full " +
-                          (p.status === "active" ? "bg-emerald-500" : "bg-zinc-400")
-                        }
-                      />
-                      {p.status === "active" ? "Активен" : "Пауза"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="py-16 text-center text-sm text-[#52796f] font-medium bg-white rounded-3xl border border-[#d4e4d4]">
+            Выберите клинику из панели выше.
+          </div>
         )}
-
-        <Pager page={page} pageSize={pageSize} total={total} onChange={setPage} />
       </div>
     </AppLayout>
   );

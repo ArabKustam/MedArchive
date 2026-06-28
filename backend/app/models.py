@@ -51,10 +51,12 @@ class PriceDocument(Base):
     storage_path: Mapped[str] = mapped_column(String(1024), default="")
     price_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    status: Mapped[str] = mapped_column(String(16), default="queued")  # queued|processing|done|error
+    status: Mapped[str] = mapped_column(String(32), default="queued")  # queued|processing|llm_processing|done|error
     items_total: Mapped[int] = mapped_column(Integer, default=0)
     items_matched: Mapped[int] = mapped_column(Integer, default=0)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    extraction_method: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    raw_llm_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     partner: Mapped[Partner] = relationship(back_populates="documents")
     items: Mapped[list["PriceItem"]] = relationship(back_populates="document")
@@ -79,6 +81,7 @@ class PriceItem(Base):
 
     match_score: Mapped[float] = mapped_column(Float, default=0.0)
     match_status: Mapped[str] = mapped_column(String(16), default="unmatched")  # auto|review|verified|unmatched
+    is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     document: Mapped[PriceDocument] = relationship(back_populates="items")
