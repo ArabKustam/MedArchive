@@ -157,6 +157,7 @@ export function SearchPage() {
                     </div>
                   </th>
 
+                  <th className="py-3.5 px-4">Категория</th>
                   <th className="py-3.5 px-4">Клиника / Партнёр</th>
 
                   {/* Кликабельный заголовок Цена */}
@@ -165,7 +166,7 @@ export function SearchPage() {
                     className="py-3.5 px-4 text-right cursor-pointer hover:bg-[#eaf4ea] transition-colors select-none"
                   >
                     <div className="flex items-center justify-end gap-1.5">
-                      <span>Цена (Резидент)</span>
+                      <span>Резидент</span>
                       {sortBy === "price_asc" ? (
                         <ArrowUp className="size-3.5 text-[#2d6a4f]" />
                       ) : sortBy === "price_desc" ? (
@@ -175,6 +176,8 @@ export function SearchPage() {
                       )}
                     </div>
                   </th>
+
+                  <th className="py-3.5 px-4 text-right">Нерезидент</th>
 
                   {/* Кликабельный заголовок Совпадение */}
                   <th
@@ -196,11 +199,19 @@ export function SearchPage() {
                 {items.map((row) => (
                   <tr key={row.item_id} className="hover:bg-[#f4fcf4]/80 transition-colors">
                     <td className="py-4 px-4 text-xs font-bold text-[#1c2e1d]">{row.service_name_raw}</td>
+                    <td className="py-4 px-4 text-xs text-[#52796f]">
+                      <span className="inline-block rounded-lg bg-[#eaf4ea] px-2 py-0.5 text-[11px] font-bold text-[#1b4332]">
+                        {row.category || "Общая медицина"}
+                      </span>
+                    </td>
                     <td className="py-4 px-4 text-xs text-[#52796f] font-semibold">
                       {row.partner_name || row.partner_id}
                     </td>
                     <td className="py-4 px-4 text-right text-xs font-black tabular-nums text-[#1c2e1d]">
                       {row.price_resident_kzt != null ? formatBYN(row.price_resident_kzt) : "—"}
+                    </td>
+                    <td className="py-4 px-4 text-right text-xs font-bold tabular-nums text-[#52796f]">
+                      {row.price_nonresident_kzt != null ? formatBYN(row.price_nonresident_kzt) : (row.price_resident_kzt != null ? formatBYN(row.price_resident_kzt) : "—")}
                     </td>
                     <td className="py-4 px-4 text-right text-xs tabular-nums font-bold text-[#2d6a4f]">
                       {Math.round(row.match_score * 100)}%
@@ -210,7 +221,7 @@ export function SearchPage() {
 
                 {items.length === 0 && !searchReq.isFetching && (
                   <tr>
-                    <td colSpan={4} className="py-12 text-center text-xs text-[#52796f] font-medium">
+                    <td colSpan={6} className="py-12 text-center text-xs text-[#52796f] font-medium">
                       {searchTerm ? `По запросу «${searchTerm}» ничего не найдено.` : "Позиций не найдено."}
                     </td>
                   </tr>

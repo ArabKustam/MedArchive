@@ -13,9 +13,11 @@ export function DeleteDocumentButton({ document, onDeleted }: Props) {
 
   const deleteMut = useMutation({
     mutationFn: () => deleteDocument(document.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries();
+    onSuccess: async () => {
+      await queryClient.invalidateQueries();
+      await queryClient.refetchQueries();
       onDeleted?.(document.id);
+      setConfirming(false);
     },
   });
 
@@ -29,15 +31,17 @@ export function DeleteDocumentButton({ document, onDeleted }: Props) {
         <span className="text-[11px] text-muted-foreground">Удалить?</span>
         <button
           type="button"
+          disabled={deleteMut.isPending}
           onClick={handleDelete}
-          className="rounded border border-rose-300 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-100"
+          className="rounded border border-rose-300 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
         >
-          Да
+          {deleteMut.isPending ? "..." : "Да"}
         </button>
         <button
           type="button"
+          disabled={deleteMut.isPending}
           onClick={() => setConfirming(false)}
-          className="rounded border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+          className="rounded border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
         >
           Отмена
         </button>

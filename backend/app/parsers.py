@@ -684,12 +684,13 @@ def _parse_text_lines(text: str) -> List[ExtractedRow]:
         if not valid_prices:
             continue
 
-        # Service name is everything before the first price or before the service code
-        first_split_idx = valid_prices[0][0]
-        if code_m and code_m.start() < first_split_idx:
-            first_split_idx = code_m.start()
+        # Service name is extracted between service code (or line start) and the first price
+        first_price_idx = valid_prices[0][0]
+        if code_m and code_m.start() < first_price_idx:
+            raw_name = line[code_m.end():first_price_idx].strip(" .-—:;\t|")
+        else:
+            raw_name = line[:first_price_idx].strip(" .-—:;\t|")
 
-        raw_name = line[:first_split_idx].strip(" .-—:;\t|")
         # Strip leading row numbers or indexes (e.g. "29 ", "1.1 ")
         cleaned_name = re.sub(r"^(?:[A-ZА-Я]{1,4}[\d.\-]{1,15}\d|\d{2,4}\.\d{1,4}(?:\.\d+)*|\d+[\d.\-]*)\s+", "", raw_name, flags=re.I).strip(" .-—:;\t|")
         name = cleaned_name if len(cleaned_name) >= 2 else raw_name

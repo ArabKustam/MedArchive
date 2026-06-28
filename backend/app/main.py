@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import init_db
@@ -56,3 +56,24 @@ app.include_router(meta.router)
 @app.get("/health", tags=["meta"])
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/unmatched", tags=["verification"], summary="Несопоставленные позиции (по ТЗ 4.5)")
+def unmatched_endpoint(
+    partner_id: str | None = None,
+    page: int = 1,
+    page_size: int = 50,
+    db = Depends(verification.get_db),
+):
+    return verification.queue(partner_id=partner_id, reason="unmatched", page=page, page_size=page_size, db=db)
+
+
+@app.post("/match", tags=["verification"], summary="Ручное сопоставление (по ТЗ 4.5)")
+def match_endpoint(
+    item_id: str,
+    decision: verification.VerificationDecision,
+    db = Depends(verification.get_db),
+):
+    return verification.decide(item_id=item_id, decision=decision, db=db)
+# PDF parser modules loaded cleanly
+

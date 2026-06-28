@@ -52,6 +52,7 @@ class PriceItemOut(BaseModel):
     partner_id: str
     partner_name: Optional[str] = None
     service_id: Optional[str] = None
+    category: Optional[str] = None
     service_name_raw: str
     service_code_source: Optional[str] = None
     price_resident_kzt: Optional[float] = None

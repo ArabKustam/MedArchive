@@ -48,6 +48,11 @@ def get_partner(partner_id: str, db: Session = Depends(get_db)):
     response_model=Page[PriceItemOut],
     summary="Прайс-лист партнёра (текущие позиции)",
 )
+@router.get(
+    "/{partner_id}/services",
+    response_model=Page[PriceItemOut],
+    summary="Услуги партнёра (по спецификации ТЗ 4.5)",
+)
 def partner_prices(
     partner_id: str,
     query: Optional[str] = Query(None),

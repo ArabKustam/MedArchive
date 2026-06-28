@@ -23,6 +23,7 @@ if DATABASE_URL.startswith("sqlite"):
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA synchronous=NORMAL")
         cursor.close()
+        dbapi_connection.create_function("lower", 1, lambda s: s.lower() if s is not None else "")
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
@@ -57,7 +58,7 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=engine)
 
-    # Auto-migration for SQLite missing columns on price_documents
+    # Auto-migration for SQLite missing columns
     with engine.connect() as conn:
         try:
             res = conn.execute(text("PRAGMA table_info(price_documents)")).fetchall()
@@ -67,6 +68,34 @@ def init_db() -> None:
                     conn.execute(text("ALTER TABLE price_documents ADD COLUMN extraction_method VARCHAR(64)"))
                 if "raw_llm_json" not in cols:
                     conn.execute(text("ALTER TABLE price_documents ADD COLUMN raw_llm_json TEXT"))
-                conn.commit()
+            
+            res_p = conn.execute(text("PRAGMA table_info(partners)")).fetchall()
+            cols_p = [r[1] for r in res_p]
+            if cols_p:
+                if "bin" not in cols_p:
+                    conn.execute(text("ALTER TABLE partners ADD COLUMN bin VARCHAR(12)"))
+                if "contact_phone" not in cols_p:
+                    conn.execute(text("ALTER TABLE partners ADD COLUMN contact_phone VARCHAR(64)"))
+                if "contact_email" not in cols_p:
+                    conn.execute(text("ALTER TABLE partners ADD COLUMN contact_email VARCHAR(128)"))
+                if "is_active" not in cols_p:
+                    conn.execute(text("ALTER TABLE partners ADD COLUMN is_active BOOLEAN DEFAULT 1"))
+                if "updated_at" not in cols_p:
+                    conn.execute(text("ALTER TABLE partners ADD COLUMN updated_at DATETIME"))
+
+            res_s = conn.execute(text("PRAGMA table_info(services)")).fetchall()
+            cols_s = [r[1] for r in res_s]
+            if cols_s and "icd_code" not in cols_s:
+                conn.execute(text("ALTER TABLE services ADD COLUMN icd_code VARCHAR(64)"))
+
+            res_pi = conn.execute(text("PRAGMA table_info(price_items)")).fetchall()
+            cols_pi = [r[1] for r in res_pi]
+            if cols_pi:
+                if "is_verified" not in cols_pi:
+                    conn.execute(text("ALTER TABLE price_items ADD COLUMN is_verified BOOLEAN DEFAULT 0"))
+                if "verification_note" not in cols_pi:
+                    conn.execute(text("ALTER TABLE price_items ADD COLUMN verification_note VARCHAR(512)"))
+
+            conn.commit()
         except Exception as e:
             print(f"[DB Auto-migration] Notice: {e}")

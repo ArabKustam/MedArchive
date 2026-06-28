@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import shutil
+import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -18,6 +19,7 @@ from .parsers import ExtractedRow, iter_archive, parse_file
 from .validation import validate_item
 
 logger = logging.getLogger(__name__)
+_pipeline_lock = threading.Lock()
 
 DATE_RE = re.compile(r"(20\d{2})[._-]?(\d{1,2})?[._-]?(\d{1,2})?")
 
@@ -181,8 +183,10 @@ def process_document(db: Session, doc_id: str, normalizer: Normalizer) -> PriceD
         return doc
 
     try:
+        logger.info(f"[Pipeline] Starting extraction for document {doc.filename} ({doc.doc_id}) Path={file_path}")
         file_type, rows = parse_file(file_path)
         doc.file_type = file_type
+        logger.info(f"[Pipeline] Parsed {doc.filename}: Extracted {len(rows)} raw rows (file_type={file_type})")
 
         # Check local parser extraction quality
         valid_local_rows = [
@@ -190,6 +194,7 @@ def process_document(db: Session, doc_id: str, normalizer: Normalizer) -> PriceD
             if r.service_name_raw and (r.price_resident_kzt is not None or r.price_nonresident_kzt is not None)
         ]
         success_ratio = len(valid_local_rows) / len(rows) if rows else 0.0
+        logger.info(f"[Pipeline] {doc.filename} Quality Check: {len(valid_local_rows)}/{len(rows)} valid rows (Ratio: {success_ratio:.2%})")
 
         doc.extraction_method = "local_parser"
 
@@ -285,10 +290,15 @@ def process_document(db: Session, doc_id: str, normalizer: Normalizer) -> PriceD
         doc.items_matched = matched
         doc.status = "done" if rows else "error"
         if not rows:
-            doc.error_message = "Не удалось извлечь распознаваемые позиции"
+            doc.error_message = "Не удалось извлечь позиции: пустой текстовый слой или нестандартный формат"
+            logger.error(f"[Pipeline Error] Document {doc.filename} ({doc.doc_id}) failed: 0 rows extracted")
+        else:
+            doc.error_message = None
+            logger.info(f"[Pipeline Success] Document {doc.filename} ({doc.doc_id}) processed: {len(rows)} total items, {matched} matched")
     except Exception as e:  # noqa: BLE001
         doc.status = "error"
         doc.error_message = str(e)[:1000]
+        logger.error(f"[Pipeline Exception] Document {doc.filename} ({doc.doc_id}) threw exception: {e}")
 
     db.commit()
     db.refresh(doc)
@@ -312,19 +322,15 @@ def process_document_bg(doc_id: str):
 
 
 def process_queue_bg(doc_ids: List[str]):
-    """Background task worker processing queued documents sequentially one-by-one in natural order."""
+    """Background task worker processing queued documents sequentially one-by-one."""
     from .db import SessionLocal
-    with SessionLocal() as db:
-        normalizer = load_normalizer(db)
-        docs = (
-            db.query(PriceDocument)
-            .filter(PriceDocument.doc_id.in_(doc_ids))
-            .order_by(PriceDocument.uploaded_at.asc(), PriceDocument.filename.asc())
-            .all()
-        )
-        for doc in docs:
-            try:
-                logger.info(f"[Queue Worker] Processing queued document {doc.filename}...")
-                process_document(db, doc.doc_id, normalizer)
-            except Exception as e:  # noqa: BLE001
-                logger.error(f"[Queue Worker] Error processing document {doc.doc_id}: {e}")
+    for doc_id in doc_ids:
+        try:
+            with SessionLocal() as db:
+                doc = db.get(PriceDocument, doc_id)
+                if doc:
+                    logger.info(f"[Queue Worker] Processing queued document {doc.filename}...")
+                    normalizer = load_normalizer(db)
+                    process_document(db, doc_id, normalizer)
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"[Queue Worker] Error processing document {doc_id}: {e}")

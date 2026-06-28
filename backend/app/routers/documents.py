@@ -51,13 +51,19 @@ def get_document_items(
     return paginate(db, stmt, pg, PriceItemOut)
 
 
-@router.post("/{doc_id}/process", response_model=PriceDocumentOut, summary="Обработать конкретный документ (OCR / парсинг)")
+@router.post("/{doc_id}/process", response_model=PriceDocumentOut, summary="Обработать конкретный документ (OCR / парсинг / Реран)")
 def process_single_document(doc_id: str, db: Session = Depends(get_db)):
+    import threading
+    from ..pipeline import process_document_bg
     d = db.get(PriceDocument, doc_id)
     if not d:
         raise HTTPException(404, "Document not found")
-    normalizer = load_normalizer(db)
-    return process_document(db, doc_id, normalizer)
+    d.status = "processing"
+    d.error_message = None
+    db.commit()
+    db.refresh(d)
+    threading.Thread(target=process_document_bg, args=(doc_id,), daemon=True).start()
+    return d
 
 
 @router.post("/process-all", summary="Запустить обработку всех документов в очереди")
@@ -78,6 +84,7 @@ def delete_document(doc_id: str, db: Session = Depends(get_db)):
         raise HTTPException(404, "Document not found")
     
     partner_id = d.partner_id
+    storage_path = d.storage_path
 
     # 1. Delete associated PriceItems
     db.query(PriceItem).filter(PriceItem.doc_id == doc_id).delete(synchronize_session=False)
@@ -85,17 +92,25 @@ def delete_document(doc_id: str, db: Session = Depends(get_db)):
     # 2. Delete associated PriceHistories
     db.query(PriceHistory).filter(PriceHistory.source_doc_id == doc_id).delete(synchronize_session=False)
     
-    # 3. Delete the document record
-    db.delete(d)
+    # 3. Delete the document record cleanly via query
+    db.query(PriceDocument).filter(PriceDocument.doc_id == doc_id).delete(synchronize_session=False)
     db.commit()
 
-    # 4. Check if partner has any remaining documents, if not delete partner
+    # 4. Remove file from disk
+    if storage_path:
+        from pathlib import Path
+        p = Path(storage_path)
+        if p.exists():
+            try:
+                p.unlink()
+            except Exception:
+                pass
+
+    # 5. Check if partner has any remaining documents, if not delete partner
     remaining_docs = db.query(PriceDocument).filter(PriceDocument.partner_id == partner_id).count()
     if remaining_docs == 0:
         from ..models import Partner
-        p = db.get(Partner, partner_id)
-        if p:
-            db.delete(p)
-            db.commit()
+        db.query(Partner).filter(Partner.partner_id == partner_id).delete(synchronize_session=False)
+        db.commit()
 
     return {"message": "Document deleted successfully"}

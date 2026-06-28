@@ -213,9 +213,13 @@ export async function decideVerification(
   });
 }
 
-export async function uploadDocument(file: File): Promise<UploadResultDTO> {
+export async function uploadDocument(file: File | File[] | FileList): Promise<UploadResultDTO> {
   const formData = new FormData();
-  formData.append("file", file);
+  if (file instanceof FileList || Array.isArray(file)) {
+    Array.from(file).forEach((f) => formData.append("files", f));
+  } else {
+    formData.append("file", file);
+  }
   return apiFetch<UploadResultDTO>("/upload", undefined, {
     method: "POST",
     body: formData,

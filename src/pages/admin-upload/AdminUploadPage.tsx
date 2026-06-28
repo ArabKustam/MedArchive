@@ -5,7 +5,7 @@
 import { useRef, useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/widgets/app-layout";
-import { documentsQuery, uploadDocument, searchQuery, partnersQuery } from "@/shared/api/queries";
+import { documentsQuery, uploadDocument, processDocument, searchQuery, partnersQuery } from "@/shared/api/queries";
 import { DocumentViewerModal } from "@/features/document-view/ui/DocumentViewerModal";
 import { DeleteDocumentButton } from "@/features/document-delete/ui/DeleteDocumentButton";
 import { StatusPill } from "@/entities/price-document";
@@ -34,6 +34,7 @@ export function AdminUploadPage() {
   const [loadingText, setLoadingText] = useState<string>("Регистрация файла...");
   const [statusAlert, setStatusAlert] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [selectedDocForModal, setSelectedDocForModal] = useState<PriceDocumentDTO | null>(null);
+  const [processingDocId, setProcessingDocId] = useState<string | null>(null);
 
   // Картография имен клиник
   const partnersReq = useQuery(partnersQuery({ page_size: 200 }));
@@ -45,11 +46,7 @@ export function AdminUploadPage() {
   // Запрос списка всех загруженных документов (с авто-обновлением во время обработки)
   const docsReq = useQuery({
     ...documentsQuery({ page, page_size: 50 }),
-    refetchInterval: (query) => {
-      const items = query.state.data?.items ?? [];
-      const hasActive = items.some((d) => d.status === "processing" || d.status === "queued");
-      return hasActive ? 2000 : false;
-    },
+    refetchInterval: 1000,
   });
   const docs = docsReq.data?.items ?? [];
   const totalDocs = docsReq.data?.total ?? docs.length;
@@ -70,28 +67,28 @@ export function AdminUploadPage() {
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
-    const file = files[0];
 
     setStatusAlert(null);
-    const isZip = file.name.toLowerCase().endsWith(".zip");
-    setLoadingText(isZip ? "Распаковка ZIP-архива и регистрация документов..." : "Регистрация файла и запуск распознавания...");
+    const fileArray = Array.from(files);
+    const count = fileArray.length;
+    setLoadingText(count > 1 ? `Регистрация пакета из ${count} файлов...` : "Регистрация файла и запуск распознавания...");
     setIsLoading(true);
 
     try {
-      const uploadRes = await uploadDocument(file);
+      const uploadRes = await uploadDocument(files);
       setIsLoading(false);
 
       if (!uploadRes.documents || uploadRes.documents.length === 0) {
         setStatusAlert({
           type: "error",
-          text: "Не найдено поддерживаемых документов в архиве (PDF, DOCX, XLSX).",
+          text: "Не найдено поддерживаемых документов (PDF, DOCX, XLSX, PNG).",
         });
         return;
       }
 
       setStatusAlert({
         type: "success",
-        text: `Загрузка успешна! Файл запущен в обработку. Зарегистрировано документов: ${uploadRes.total_files || uploadRes.documents.length}.`,
+        text: `Загрузка успешна! Зарегистрировано документов: ${uploadRes.total_files || uploadRes.documents.length}. Все файлы отправлены на обработку.`,
       });
 
       queryClient.invalidateQueries();
@@ -129,7 +126,7 @@ export function AdminUploadPage() {
               <div>
                 <h2 className="text-xl font-bold text-[#1c2e1d]">Загрузить новый прайс</h2>
                 <p className="text-xs text-[#52796f] mt-1 font-medium">
-                  Выберите файл в формате ZIP, PDF, XLSX, DOCX или PNG.
+                  Выберите файл в формате ZIP, PDF, XLSX, DOCX или PNG. Можно выбрать несколько файлов сразу.
                 </p>
               </div>
 
@@ -158,10 +155,10 @@ export function AdminUploadPage() {
                 </div>
                 <div>
                   <div className="text-sm font-bold text-[#1c2e1d]">
-                    Перетащите сюда ZIP или отдельный файл
+                    Перетащите сюда файлы прайсов или ZIP-архив
                   </div>
                   <div className="text-xs text-[#52796f] mt-1">
-                    Поддерживаются PDF, XLSX, XLS, DOCX, JPG, PNG
+                    Поддерживается выделение нескольких файлов сразу (PDF, XLSX, DOCX, PNG)
                   </div>
                 </div>
                 <button
@@ -173,6 +170,7 @@ export function AdminUploadPage() {
                 <input
                   ref={fileRef}
                   type="file"
+                  multiple
                   onChange={(e) => handleFiles(e.target.files)}
                   accept=".zip,.pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg"
                   className="hidden"
@@ -347,10 +345,28 @@ export function AdminUploadPage() {
                             {d.items_total || 0}
                           </td>
                           <td className="py-4 px-4 text-right">
-                            <StatusPill status={d.status as any} />
+                            <StatusPill status={d.status as any} errorMessage={d.error_message} />
                           </td>
                           <td className="py-4 px-4 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                disabled={d.status === "processing" || d.status === "queued" || processingDocId === d.doc_id}
+                                onClick={async () => {
+                                  setProcessingDocId(d.doc_id);
+                                  try {
+                                    await processDocument(d.doc_id);
+                                    await docsReq.refetch();
+                                    queryClient.invalidateQueries();
+                                  } finally {
+                                    setTimeout(() => setProcessingDocId(null), 1500);
+                                  }
+                                }}
+                                title="Перезапустить анализ файла (Реран)"
+                                className="p-2 bg-amber-50 hover:bg-amber-100 disabled:opacity-50 text-amber-900 border border-amber-300 rounded-xl transition-all cursor-pointer shadow-2xs flex items-center justify-center"
+                              >
+                                <RefreshCw className={`size-3.5 text-amber-700 ${d.status === "processing" || d.status === "queued" || processingDocId === d.doc_id ? "animate-spin" : ""}`} />
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => setSelectedDocForModal(d)}

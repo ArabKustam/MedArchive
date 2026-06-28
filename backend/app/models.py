@@ -22,10 +22,15 @@ class Partner(Base):
     name: Mapped[str] = mapped_column(String(512), index=True)
     city: Mapped[str] = mapped_column(String(128), index=True, default="")
     address: Mapped[str] = mapped_column(String(512), default="")
+    bin: Mapped[str] = mapped_column(String(12), default="")
     phone: Mapped[str] = mapped_column(String(64), default="")
     email: Mapped[str] = mapped_column(String(128), default="")
+    contact_phone: Mapped[str] = mapped_column(String(64), default="")
+    contact_email: Mapped[str] = mapped_column(String(128), default="")
     status: Mapped[str] = mapped_column(String(16), default="active")  # active|paused
+    is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     documents: Mapped[list["PriceDocument"]] = relationship(back_populates="partner")
     items: Mapped[list["PriceItem"]] = relationship(back_populates="partner")
@@ -37,6 +42,7 @@ class Service(Base):
     service_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     service_name: Mapped[str] = mapped_column(String(512), index=True)
     category: Mapped[str] = mapped_column(String(128), index=True, default="")
+    icd_code: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     synonyms: Mapped[Optional[list]] = mapped_column(JSON, default=list)
     is_active: Mapped[bool] = mapped_column(default=True)
 
@@ -81,6 +87,8 @@ class PriceItem(Base):
 
     match_score: Mapped[float] = mapped_column(Float, default=0.0)
     match_status: Mapped[str] = mapped_column(String(16), default="unmatched")  # auto|review|verified|unmatched
+    is_verified: Mapped[bool] = mapped_column(default=False)
+    verification_note: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

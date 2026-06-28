@@ -39,6 +39,7 @@ export type PriceItemDTO = {
   partner_id: string;
   partner_name?: string | null;
   service_id: string | null;
+  category?: string | null;
   service_name_raw: string;
   service_code_source: string | null;
   price_resident_kzt: number | null;

@@ -11,6 +11,7 @@ import {
   Activity,
   Database,
   Sparkles,
+  FileText,
 } from "lucide-react";
 
 type NavItem = {
@@ -21,6 +22,7 @@ type NavItem = {
 
 const mainNav: NavItem[] = [
   { to: "/admin/upload", label: "Прайсы", icon: FileCode2 },
+  { to: "/admin/documents", label: "Документы", icon: FileText },
   { to: "/partners", label: "Партнёры", icon: Building2 },
   { to: "/", label: "Поиск", icon: Search },
   { to: "/admin/verify", label: "Ревью", icon: CheckCircle2 },

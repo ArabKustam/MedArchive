@@ -10,8 +10,8 @@ import { StatusPill } from "@/entities/price-document";
 import { DeleteDocumentButton } from "@/features/document-delete/ui/DeleteDocumentButton";
 import { DocumentViewerModal } from "@/features/document-view/ui/DocumentViewerModal";
 import { documentsQuery, partnersQuery } from "@/shared/api/queries";
-import { TableSkeleton, ErrorState } from "@/shared/ui/AsyncState";
 import { AppLayout } from "@/widgets/app-layout";
+import { RefreshCw } from "lucide-react";
 import type { PriceDocumentDTO } from "@/shared/api/types";
 
 type StatusFilter = "all" | "queued" | "processing" | "done" | "error";
@@ -30,6 +30,7 @@ export function AdminDocumentsPage() {
   const [status, setStatus] = useState<StatusFilter>("all");
   const [page, setPage] = useState(1);
   const [selectedDoc, setSelectedDoc] = useState<PriceDocumentDTO | null>(null);
+  const [processingDocId, setProcessingDocId] = useState<string | null>(null);
 
   // Fetch partners map from backend dynamically
   const partnersReq = useQuery(partnersQuery({ page_size: 200 }));
@@ -44,13 +45,13 @@ export function AdminDocumentsPage() {
       status: status !== "all" ? status : undefined,
       page,
     }),
-    refetchInterval: 2000,
+    refetchInterval: 1000,
   });
 
   // Fetch overall documents list (to calculate exact counts per status tab)
   const allDocsReq = useQuery({
     ...documentsQuery({ page: 1 }),
-    refetchInterval: 3000,
+    refetchInterval: 1000,
   });
 
   const statusCounts = useMemo(() => {
@@ -170,7 +171,7 @@ export function AdminDocumentsPage() {
                               №{queueIdx} в очереди
                             </span>
                           )}
-                          <StatusPill status={d.status as "queued" | "processing" | "done" | "error"} />
+                          <StatusPill status={d.status as "queued" | "processing" | "done" | "error"} errorMessage={d.error_message} />
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
@@ -181,20 +182,25 @@ export function AdminDocumentsPage() {
                         >
                           👁️ Позиции
                         </button>
-                        {d.status === "queued" && (
-                          <button
-                            type="button"
-                            onClick={async () => {
+                        <button
+                          type="button"
+                          disabled={d.status === "processing" || d.status === "queued" || processingDocId === d.doc_id}
+                          onClick={async () => {
+                            setProcessingDocId(d.doc_id);
+                            try {
                               const { processDocument } = await import("@/shared/api/queries");
                               await processDocument(d.doc_id);
-                              docsReq.refetch();
-                              allDocsReq.refetch();
-                            }}
-                            className="rounded bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-600 hover:bg-amber-500/20 transition-colors"
-                          >
-                            Обработать
-                          </button>
-                        )}
+                              await docsReq.refetch();
+                              await allDocsReq.refetch();
+                            } finally {
+                              setTimeout(() => setProcessingDocId(null), 1500);
+                            }
+                          }}
+                          title="Перезапустить анализ файла (Реран)"
+                          className="rounded bg-amber-500/10 p-1.5 text-amber-600 hover:bg-amber-500/20 disabled:opacity-50 transition-colors cursor-pointer flex items-center justify-center"
+                        >
+                          <RefreshCw className={`size-3.5 ${d.status === "processing" || d.status === "queued" || processingDocId === d.doc_id ? "animate-spin" : ""}`} />
+                        </button>
                         <DeleteDocumentButton document={{ id: d.doc_id, filename: d.filename }} />
                       </td>
                     </tr>

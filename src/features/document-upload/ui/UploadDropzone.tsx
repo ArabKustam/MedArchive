@@ -27,15 +27,15 @@ export function UploadDropzone() {
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
-    const file = files[0];
 
     setStatusAlert(null);
-    const isZip = file.name.toLowerCase().endsWith(".zip");
-    setLoadingText(isZip ? "Распаковка ZIP-архива..." : "Регистрация файла и запуск распознавания...");
+    const fileArray = Array.from(files);
+    const count = fileArray.length;
+    setLoadingText(count > 1 ? `Регистрация пакета из ${count} файлов...` : "Регистрация файла и запуск распознавания...");
     setIsLoading(true);
 
     try {
-      const uploadRes = await uploadDocument(file);
+      const uploadRes = await uploadDocument(files);
       setIsLoading(false);
 
       if (!uploadRes.documents || uploadRes.documents.length === 0) {
@@ -48,7 +48,7 @@ export function UploadDropzone() {
 
       setStatusAlert({
         type: "success",
-        text: `Файл зарегистрирован и отправлен на фоновую обработку. Статус отслеживается в реальном времени ниже!`,
+        text: `Зарегистрировано файлов: ${uploadRes.total_files}. Все файлы отправлены на фоновую обработку!`,
       });
 
       // Обновляем состояние запросов в кэше
@@ -58,7 +58,7 @@ export function UploadDropzone() {
       setIsLoading(false);
       setStatusAlert({
         type: "error",
-        text: `Ошибка при загрузке файла: ${err.message || err}`,
+        text: `Ошибка при загрузке файлов: ${err.message || err}`,
       });
     }
   }
@@ -96,6 +96,7 @@ export function UploadDropzone() {
         <input
           ref={fileRef}
           type="file"
+          multiple
           accept=".zip,.pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg,.webp,.tiff"
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}

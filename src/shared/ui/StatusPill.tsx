@@ -18,7 +18,7 @@ const STATUS_MAP: Record<string, { label: string; cls: string; dot: string }> = 
   error: { label: "Ошибка ❌", cls: "bg-rose-100 text-rose-900 border border-rose-300", dot: "bg-rose-600" },
 };
 
-export function StatusPill({ status }: { status: Status }) {
+export function StatusPill({ status, errorMessage }: { status: Status; errorMessage?: string | null }) {
   const s = STATUS_MAP[status] || {
     label: status.toUpperCase(),
     cls: "bg-slate-100 text-slate-800 border border-slate-300",
@@ -27,8 +27,10 @@ export function StatusPill({ status }: { status: Status }) {
 
   return (
     <span
+      title={status === "error" ? errorMessage || "При распознавании файла возникла ошибка" : undefined}
       className={
         "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] font-extrabold uppercase shadow-2xs " +
+        (status === "error" ? "cursor-help " : "") +
         s.cls
       }
     >
