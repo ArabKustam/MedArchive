@@ -16,10 +16,15 @@ from ..schemas import Page, PriceItemOut
 router = APIRouter(prefix="/search", tags=["search"])
 
 MEDICAL_SYNONYMS_MAP = {
-    "кт": ["компьютерная томография", "компьютерная", "мскт"],
-    "мскт": ["кт", "компьютерная томография", "компьютерная"],
-    "компьютерная": ["кт", "мскт", "компьютерная томография"],
-    "мрт": ["магнитно-резонансная томография", "магнитно резонансная томография", "магнитно-резонансная"],
+    "кт": ["компьютерная томография", "компьютерная", "мскт", "компьютер"],
+    "мскт": ["кт", "компьютерная томография", "компьютерная", "компьютер"],
+    "компьютерная": ["кт", "мскт", "компьютерная томография", "компьютер"],
+    "мрт": [
+        "магнитно-резонансная томография", "магнитно резонансная томография", "магнитно-резонансная", "магнитнорезонансная", "магнитнорезонасная",
+        "магниторезонансная томография", "магнито резонансная томография", "магнито-резонансная", "магниторезонансная", "магниторезонасная", "магнито", "магнитно"
+    ],
+    "магниторезонансная": ["мрт", "магнитно-резонансная томография", "магнито-резонансная томография", "магнитно резонансная", "магнито резонансная"],
+    "магнитнорезонансная": ["мрт", "магнитно-резонансная томография", "магнито-резонансная томография", "магнитно резонансная", "магнито резонансная"],
     "узи": ["ультразвуковое исследование", "ультразвук", "ультразвуковая"],
     "экг": ["электрокардиография", "электрокардиограмма"],
     "фгдс": ["фиброгастродуоденоскопия", "гастроскопия"],
@@ -44,16 +49,21 @@ def search(
     stmt = select(PriceItem).where(PriceItem.is_active == True)
     
     q_clean = query.strip().lower()
+    q_alphanumeric = re.sub(r"[^a-zA-Zа-яА-Я0-9]", "", q_clean)
+    
     expanded_terms: List[str] = []
     if q_clean:
         synonyms = MEDICAL_SYNONYMS_MAP.get(q_clean, [])
-        expanded_terms = [q_clean] + synonyms
+        if not synonyms and q_alphanumeric:
+            synonyms = MEDICAL_SYNONYMS_MAP.get(q_alphanumeric, [])
+        expanded_terms = [q_clean, q_alphanumeric] + synonyms
 
     if expanded_terms:
         from sqlalchemy import or_
         conditions = []
-        for t in expanded_terms:
-            conditions.append(PriceItem.service_name_raw.ilike(f"%{t}%"))
+        for t in set(expanded_terms):
+            if t:
+                conditions.append(PriceItem.service_name_raw.ilike(f"%{t}%"))
         stmt = stmt.where(or_(*conditions))
 
     if partner_id:
@@ -71,22 +81,35 @@ def search(
     if matched_only:
         stmt = stmt.where(PriceItem.service_id.is_not(None))
 
-    # Fetch all database candidates to apply Word-Boundary Filtering & Custom Relevance Ranking
+    # Fetch all database candidates
     raw_candidates: List[PriceItem] = db.scalars(stmt).all()
+
+    # If exact SQL matching returned empty and query is substantial, apply RapidFuzz Typo Tolerance across all items
+    if not raw_candidates and q_clean and len(q_clean) >= 3:
+        try:
+            from rapidfuzz import fuzz
+            all_items = db.scalars(select(PriceItem).where(PriceItem.is_active == True)).all()
+            for item in all_items:
+                clean_item_name = re.sub(r"[^a-zA-Zа-яА-Я0-9]", "", item.service_name_raw.lower())
+                if fuzz.partial_ratio(q_alphanumeric, clean_item_name) >= 75:
+                    raw_candidates.append(item)
+        except ImportError:
+            pass
 
     filtered_items: List[PriceItem] = []
     if q_clean and len(q_clean) <= 4:
         # Word-Boundary Matching for short medical acronyms (e.g. КТ, МРТ, УЗИ)
-        pattern_str = r"(?i)\b(" + "|".join([re.escape(t) for t in expanded_terms]) + r")\b"
+        pattern_str = r"(?i)\b(" + "|".join([re.escape(t) for t in set(expanded_terms) if t]) + r")\b"
         wb_regex = re.compile(pattern_str)
         for item in raw_candidates:
             if wb_regex.search(item.service_name_raw):
                 filtered_items.append(item)
     elif expanded_terms:
-        pattern_str = r"(?i)(" + "|".join([re.escape(t) for t in expanded_terms]) + r")"
+        pattern_str = r"(?i)(" + "|".join([re.escape(t) for t in set(expanded_terms) if t]) + r")"
         sub_regex = re.compile(pattern_str)
         for item in raw_candidates:
-            if sub_regex.search(item.service_name_raw):
+            clean_item_name = re.sub(r"[^a-zA-Zа-яА-Я0-9]", "", item.service_name_raw.lower())
+            if sub_regex.search(item.service_name_raw) or (q_alphanumeric and q_alphanumeric in clean_item_name):
                 filtered_items.append(item)
     else:
         filtered_items = raw_candidates
