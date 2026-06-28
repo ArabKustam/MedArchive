@@ -55,13 +55,14 @@ def get_document_items(
 def process_single_document(doc_id: str, db: Session = Depends(get_db)):
     import threading
     from ..pipeline import process_document_bg
-    d = db.get(PriceDocument, doc_id)
-    if not d:
+    updated = db.query(PriceDocument).filter(PriceDocument.doc_id == doc_id).update(
+        {"status": "processing", "error_message": None},
+        synchronize_session=False,
+    )
+    if not updated:
         raise HTTPException(404, "Document not found")
-    d.status = "processing"
-    d.error_message = None
     db.commit()
-    db.refresh(d)
+    d = db.get(PriceDocument, doc_id)
     threading.Thread(target=process_document_bg, args=(doc_id,), daemon=True).start()
     return d
 

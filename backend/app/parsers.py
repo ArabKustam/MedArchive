@@ -421,28 +421,16 @@ def _extract_row_heuristic(cells: List[str]) -> Optional[ExtractedRow]:
 
 def parse_pdf(path: Path) -> List[ExtractedRow]:
     rows: List[ExtractedRow] = []
+    logger.info(f"📄 [PDF Engine] Inspecting file: {path.name}")
     try:
         import pdfplumber
     except ImportError:
+        logger.error(f"❌ [PDF Engine] pdfplumber is missing! Cannot parse {path.name}")
         return rows
 
     try:
         with pdfplumber.open(str(path)) as pdf:
-            # Quick quality gate: detect garbled text from non-standard fonts
-            sample_text = ""
-            for pg in pdf.pages[:3]:
-                t = pg.extract_text() or ""
-                sample_text += t
-                if len(sample_text) > 500:
-                    break
-
-            if _is_garbled_text(sample_text):
-                logger.info(
-                    "PDF text appears garbled (font-encoding issue), "
-                    "falling back to OCR for %s", path,
-                )
-                return []  # triggers OCR fallback in parse_file()
-
+            logger.info(f"📄 [PDF Engine] Document opened successfully: {path.name} ({len(pdf.pages)} pages)")
             all_text_pages = []
             last_known_cm: Optional[ColumnMap] = None
 
@@ -488,10 +476,13 @@ def parse_pdf(path: Path) -> List[ExtractedRow]:
                         all_text_pages.append(t)
 
             if all_text_pages:
+                logger.info(f"📄 [PDF Engine] Extracted {len(rows)} table rows; parsing {len(all_text_pages)} text pages line-by-line...")
                 combined_text = "\n".join(all_text_pages)
                 rows.extend(_parse_text_lines(combined_text))
+
+            logger.info(f"✅ [PDF Engine Completed] {path.name}: Total extracted positions = {len(rows)}")
     except Exception as e:
-        logger.warning(f"PDF parsing error for {path}: {e}")
+        logger.error(f"❌ [PDF Engine Exception] Failed parsing {path.name}: {e}", exc_info=True)
         return rows
     return rows
 
